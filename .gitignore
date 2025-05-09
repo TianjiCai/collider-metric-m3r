@@ -1,10 +1,12 @@
 dataset/
 local_dataset_path.txt
-test.ipynb
-test_mini_dataset.ipynb
+*test.ipynb
+mini_dataset/test_mini_dataset.ipynb
+
+*.npy
 
 .DS_Store
-
+centralFunctions.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

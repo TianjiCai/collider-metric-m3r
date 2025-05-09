@@ -42,12 +42,21 @@ def test_pt_nonnegative(pt: np.ndarray):
 
 test_for_phi = [list_of_x[i][:,:,2] for i in range(len(file_names))]
 @pytest.mark.parametrize("phi", test_for_phi)
-def test_phi_within_2PI(phi: np.ndarray):
-    spread = np.max(phi) - np.min(phi)
-    assert spread <= 2 * np.pi, (
-        fr"TEST FAILED: \phi spread exceeds 2\pi. Spread = {spread}, "
-        fr"min = {np.min(phi)}, max = {np.max(phi)}"
-    )
+def test_phi_within_PI(phi: np.ndarray):
+    for i, event_phi in enumerate(phi):
+        min_nonzero = event_phi[event_phi != 0].min()
+        max_nonzero = event_phi[event_phi != 0].max()
+        spread = max_nonzero - min_nonzero
+        assert spread <= np.pi, (
+            fr"TEST FAILED: \phi spread exceeds \pi. Spread = {spread}, "
+            fr"min = {min_nonzero}, max = {max_nonzero}, index = {i}"
+        )
+
+test_for_mass = [list_of_x[i][:,:,3] for i in range(len(file_names))]
+@pytest.mark.parametrize("mass", test_for_mass)
+def test_mass_nonnegative(mass: np.ndarray):
+    print(mass[:5])
+    assert np.all(mass >= 0), "Found negative mass values"
 
 # def test_x_length(self, x: np.ndarray, length: int) -> None:
 #     if x.shape[0] != length:

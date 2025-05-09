@@ -33,6 +33,22 @@ import uproot
 import vector
 vector.register_awkward()
 
+def _pad(a, maxlen, value=0, dtype='float32'):
+    if isinstance(a, np.ndarray) and a.ndim >= 2 and a.shape[1] == maxlen:
+        return a
+    elif isinstance(a, ak.Array):
+        if a.ndim == 1:
+            a = ak.unflatten(a, 1)
+        a = ak.fill_none(ak.pad_none(a, maxlen, clip=True), value)
+        return ak.values_astype(a, dtype)
+    else:
+        x = (np.ones((len(a), maxlen)) * value).astype(dtype)
+        for idx, s in enumerate(a):
+            if not len(s):
+                continue
+            trunc = s[:maxlen].astype(dtype)
+            x[idx, :len(trunc)] = trunc
+        return x
 
 def read_file(
         filepath,
@@ -110,24 +126,6 @@ def read_file(
         - `y`: a one-hot encoded numpy array of the truth lables
                in the shape `(num_jets, num_classes)`.
     """
-
-    def _pad(a, maxlen, value=0, dtype='float32'):
-        if isinstance(a, np.ndarray) and a.ndim >= 2 and a.shape[1] == maxlen:
-            return a
-        elif isinstance(a, ak.Array):
-            if a.ndim == 1:
-                a = ak.unflatten(a, 1)
-            a = ak.fill_none(ak.pad_none(a, maxlen, clip=True), value)
-            return ak.values_astype(a, dtype)
-        else:
-            x = (np.ones((len(a), maxlen)) * value).astype(dtype)
-            for idx, s in enumerate(a):
-                if not len(s):
-                    continue
-                trunc = s[:maxlen].astype(dtype)
-                x[idx, :len(trunc)] = trunc
-            return x
-
     table = uproot.open(filepath)['tree'].arrays()
 
     p4 = vector.zip({'px': table['part_px'],
