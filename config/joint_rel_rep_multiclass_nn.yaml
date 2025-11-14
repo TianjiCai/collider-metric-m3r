@@ -1,0 +1,25 @@
+run_name: joint_rel_rep_multiclass_nn
+experiment: JointRelRepMulticlassNN
+
+num_metric: 2
+metric_1: "w2"
+metric_2: "sw"
+metric_3: null
+
+data_path_1: rel_rep_data/${metric_1}/
+data_path_2: rel_rep_data/${metric_2}/
+
+rel_rep_multiclass_nn:
+  # center: false
+  network:
+    input_dim: ${mul:${mul:${n_classes},${rel_rep_multiclass_nn.anchor_per_class}},${num_metric}}
+
+defaults:
+  - default
+  - _self_
+
+hydra:
+  run:
+    dir: runs/${run_name}/${metric_1}_${metric_2}/${now:%Y-%m-%d_%H-%M-%S}
+
+plot_only: false

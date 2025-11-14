@@ -9,15 +9,15 @@ import matplotlib.pyplot as plt
 
 class MLP(nn.Module):
     def __init__(
-        self, input_dim, hidden_dims, output_dim, activation=F.relu, dropout=0.0
+        self, input_dim, hidden_dims, output_dim, activation='relu', dropout=0.0
     ):
         super(MLP, self).__init__()
         layers = []
         prev_dim = input_dim
-
+        # self.act = getattr(F, activation)
         for hidden_dim in hidden_dims:
             layers.append(nn.Linear(prev_dim, hidden_dim))
-            layers.append(nn.ReLU() if activation == F.relu else nn.Tanh())
+            layers.append(nn.ReLU() if activation == 'relu' else nn.Tanh())
             if dropout > 0:
                 layers.append(nn.Dropout(dropout))
             prev_dim = hidden_dim
@@ -182,16 +182,16 @@ def train_network_torch(
                 print(f"Early stopping at epoch {epoch + 1}")
                 break
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(train_loss_history, label="Training Loss")
-    if val_loader is not None:
-        plt.plot(val_loss_history, label="Validation Loss")
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    # plt.xscale("log")
-    plt.title("Training and Validation Loss over Epochs")
-    plt.legend()
-    plt.show()
+    # plt.figure(figsize=(10, 5))
+    # plt.plot(train_loss_history, label="Training Loss")
+    # if val_loader is not None:
+    #     plt.plot(val_loss_history, label="Validation Loss")
+    # plt.xlabel("Epochs")
+    # plt.ylabel("Loss")
+    # # plt.xscale("log")
+    # plt.title("Training and Validation Loss over Epochs")
+    # plt.legend()
+    # plt.show()
 
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
@@ -203,16 +203,17 @@ def evaluate_network_torch(
     model, X_test, y_test, batch_size=256, device="cpu", seed=42
 ):
     set_seed(seed)
-
+    # print("device:", type(device))
+    # print(torch.backends.mps.is_available())
     if device == "cpu":
         device = torch.device("cpu")
-        print("Using CPU for training.")
+        print("Using CPU for evaluation.")
     elif device == "cuda" and torch.cuda.is_available():
         device = torch.device("cuda")
-        print("Using Nvidia GPU for training.")
+        print("Using Nvidia GPU for evaluation.")
     elif device == "mps" and torch.backends.mps.is_available():
         device = torch.device("mps")
-        print("Using Apple Silicon GPU for training.")
+        print("Using Apple Silicon GPU for evaluation.")
     else:
         raise ValueError(f"Unsupported device type: {device}")
 
@@ -226,6 +227,7 @@ def evaluate_network_torch(
     num_batches = (num_samples + batch_size - 1) // batch_size
     correct = 0
     total = 0
+    all_preds = []
 
     with torch.no_grad():
         for i in range(num_batches):
@@ -234,9 +236,13 @@ def evaluate_network_torch(
 
             outputs = model(batch_X)
             _, predicted = torch.max(outputs.data, 1)
+            all_preds.append(predicted.cpu())
+            
             total += batch_y.size(0)
             correct += (predicted == batch_y).sum().item()
 
     accuracy = correct / total
+    all_preds = torch.cat(all_preds).numpy()
     print(f"Test Accuracy: {accuracy:.4f}")
-    return accuracy
+    
+    return accuracy, all_preds

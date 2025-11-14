@@ -1,4 +1,4 @@
-dataset/
+jetclass_dataset/
 local_dataset_path.txt
 *test.ipynb
 mini_dataset/test_mini_dataset.ipynb
@@ -11,10 +11,14 @@ test*.ipynb
 test/
 *.png
 *rep*.npz
-main.py
 *.dat
 *p4s.npz
 *.pth
+*gen/
+metric_comparison/
+joint_rep/
+legacy_files/
+runs/
 
 .DS_Store
 centralFunctions.py
