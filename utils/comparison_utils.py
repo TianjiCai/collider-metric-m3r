@@ -4,7 +4,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import roc_auc_score, roc_curve, accuracy_score
 from tqdm import tqdm
-import ot_utils
+import utils.ot_utils
 import itertools
 # pyright: reportArgumentType=false
 
@@ -124,6 +124,8 @@ def relative_rep(distance_matrix_1, labels, num_classes, anchors_per_class, seed
     np.random.seed(seed)
 
     labels_buckets = [np.where(labels == i)[0] for i in range(num_classes)]
+    # print(labels_buckets[0].shape)
+    # print(labels_buckets[1].shape)
 
     anchors_indices = np.zeros(anchors_per_class * num_classes, dtype=int)
 
@@ -154,17 +156,69 @@ def relative_rep_ref(events, ref_events):
         ),
         total=events.shape[0] * ref_events.shape[0],
     ):
-        rel_rep[i][j] = ot_utils.get_W2_Kin(events[i], ref_events[j])
+        rel_rep[i][j] = utils.ot_utils.get_W2_Kin(events[i], ref_events[j])
 
     return rel_rep
 
 
 def relative_rep_parallel(events, ref_events, batch_size=1024):
-    return ot_utils.parallel_dist_mat_non_square(
+    return utils.ot_utils.parallel_dist_mat_non_square(
         event_set_1=events,
         event_set_2=ref_events,
-        dist_func=ot_utils.get_W2_Kin,
+        dist_func=utils.ot_utils.get_W2_Kin,
         events_per_process=batch_size,
+    )
+
+
+def decision_ordering_sim(rel_rep_1, rel_rep_2):
+    n = rel_rep_1.shape[0]
+    i_ind, j_ind = np.triu_indices(n, k=1)
+
+    dec_ord = 0
+
+    for i, j in zip(i_ind, j_ind):
+        dec_ord += decision_ordering(rel_rep_1, rel_rep_2, i, j)
+
+    return dec_ord / len(i_ind)
+
+
+def decision_ordering_sim_2(rel_rep_1, rel_rep_2):
+    n = rel_rep_1.shape[0]
+    i_ind, j_ind = np.triu_indices(n, k=1)
+
+    dec_ord = 0
+
+    for i, j in zip(i_ind, j_ind):
+        dec_ord += decision_ordering_2(rel_rep_1, rel_rep_2, i, j)
+
+    return dec_ord / len(i_ind)
+
+
+def decision_ordering(rel_rep_1, rel_rep_2, event_1_ind, event_2_ind):
+    event_1_rel_1 = rel_rep_1[event_1_ind]
+    event_2_rel_1 = rel_rep_1[event_2_ind]
+
+    event_1_rel_2 = rel_rep_2[event_1_ind]
+    event_2_rel_2 = rel_rep_2[event_2_ind]
+
+    return np.mean(
+        np.heaviside(
+            (event_1_rel_1 - event_2_rel_1) * (event_1_rel_2 - event_2_rel_2), 0.5
+        )
+    )
+
+
+def decision_ordering_2(rel_rep_1, rel_rep_2, event_1_ind, event_2_ind):
+    event_1_rel_1 = rel_rep_1[event_1_ind]
+    event_2_rel_1 = rel_rep_1[event_2_ind]
+
+    event_1_rel_2 = rel_rep_2[event_1_ind]
+    event_2_rel_2 = rel_rep_2[event_2_ind]
+
+    return np.heaviside(
+        (np.mean(event_1_rel_1) - np.mean(event_2_rel_1))
+        * (np.mean(event_1_rel_2) - np.mean(event_2_rel_2)),
+        0.5,
     )
 
 
@@ -191,164 +245,11 @@ def eud_dist(vec_1: np.ndarray, vec_2: np.ndarray):
     return d
 
 
-# def kNN_ROC_metrics(labels, prediction_proba, SIreg=0.0001, Interpolate=False):
-#     """
-#     Calculate ROC metrics for kNN classifier
-#     Inputs:
-#         labels:             An array of binary labels for background and signal.
-#         prediction_proba:   An array of probabilities for each row/column being a signal jet.
-#         SIreg:              The regularization parameter for the Significance Improvement (SI) curve. Default is 0.0001
-#         Interpolate:        Default is False. When set to True, interpolate the ROC curve to have 101 points.
-#     Outputs:
-#         auc, fpr, tpr, si, fprInv, f1_score: The AUC, FPR, TPR, SI, FPR^{-1}, and F1 score of the ROC curve.
-#     """
-#     fpr_raw, tpr_raw, _ = roc_curve(labels, prediction_proba)
-
-#     if Interpolate:
-#         base_tpr = np.linspace(0, 1, 101)  # 0.00, 0.01, ..., 1.0
-#         tpr = base_tpr
-#         fpr = np.interp(base_tpr, tpr_raw, fpr_raw)
-#     else:
-#         tpr = tpr_raw
-#         fpr = fpr_raw
-
-#     auc = roc_auc_score(labels, prediction_proba)
-
-#     fpr_sqrt = np.sqrt(fpr + SIreg)
-#     si = tpr / fpr_sqrt
-
-#     fpr_masked = np.ma.masked_where(fpr == 0.0, fpr)
-#     fprInv = 1.0 / fpr_masked
-
-#     P = np.count_nonzero(labels == 1)  # Number of signal (labels==1)
-#     N = np.count_nonzero(labels == 0)  # Number of background (labels==0)
-#     tp = P * tpr
-#     fp = N * fpr
-#     fn = P * (1 - tpr)  # P*fnr
-#     f1_score = (2 * tp) / (2 * tp + fp + fn)
-
-#     return auc, fpr, tpr, si, fprInv, f1_score
-
-
-# def kNNGridSearchCV(distance_matrix, labels, nNeighborList, nFolds=5):
-#     """
-#     Convenient wrapper to perform n-fold grid search cross-validation of a kNN with a precomputed metric on a list of hyperparameters
-
-#     distance_matrix:  2D array of distances used for training+validation; shape=(N,N)
-#     labels:           N training+validation labels; shape=(N,)
-#     nNeighborList:    List of hyperparameters
-
-#     Returns the best hyperparameter over the CV process
-#     """
-
-#     # Define overarching kNN (do not specify neighbors yet since we will scan over them)
-#     knn2 = KNeighborsClassifier(metric="precomputed")
-
-#     # Ref: https://towardsdatascience.com/building-a-k-nearest-neighbors-k-nn-model-with-scikit-learn-51209555453a#:~:text=k%2DFold%20Cross%2DValidation,scored%20on%20the%20test%20set.
-#     # create a dictionary of all values we want to test for n_neighbors
-#     param_grid = {"n_neighbors": nNeighborList}
-
-#     # use gridsearch to test all values for n_neighbors
-#     # knn_gscv = GridSearchCV(knn2, param_grid, cv=nFolds, scoring="roc_auc")
-#     knn_gscv = GridSearchCV(knn2, param_grid, cv=nFolds, scoring="accuracy")
-
-#     # fit model to data
-#     knn_gscv.fit(distance_matrix, labels)
-
-#     # Report performance
-#     # print("Best parameters:             ", knn_gscv.best_params_)
-#     # print("Best parameter average AUC:  ", knn_gscv.best_score_)
-#     # avAUC, stdAUC = knn_gscv.cv_results_['mean_test_score'], knn_gscv.cv_results_['std_test_score']
-
-#     return knn_gscv.best_params_
-
-
-# def kNNPerformanceEvaluation(
-#     train_matrix, test_matrix, train_labels, test_labels, nNeighbor
-# ):
-#     """
-#     Splits the test matrix into 5 sections with even length to get the performance metrics used to make the ROC Curve plots.
-
-#     train_matrix: 2D np arrray of distances used for training the kNN model; shape (N,N), N is the number of training samples
-#     test_matrix: 2D np array of distances used for testing the kNN model; shape (M, N), M is the number of testing samples
-#     train_labels: labels for the training set; shape (N,)
-#     test_labels: labels for both the testing set. shape(M,)
-#     nNeighbor: the hyperparameter for the kNN model
-
-#     return: metric_dict: a dictionary that contains lists of, in order, [auc, fpr, tpr, si, fprInv, f1_score], for each evaluation of the splitted test matrix
-#     """
-
-#     M = test_labels.shape[0]
-#     assert M % 5 == 0, "the length of the testing sample must be divisible by 5"
-#     test_length = M // 5
-
-#     metric_dict = {}
-#     aucs = np.zeros(5)
-
-#     knn = KNeighborsClassifier(n_neighbors=nNeighbor, metric="precomputed")
-#     knn.fit(train_matrix, train_labels)
-
-#     for i in range(5):
-#         i_th_test_matrix = test_matrix[i * test_length : (i + 1) * test_length, :]
-#         i_th_test_labels = test_labels[i * test_length : (i + 1) * test_length]
-
-#         pred = knn.predict_proba(i_th_test_matrix)[:, 1]
-#         kNN_metrics = kNN_ROC_metrics(
-#             i_th_test_labels, prediction_proba=pred, Interpolate=True
-#         )
-
-#         metric_dict["repeat" + str(i)] = kNN_metrics
-#         auc = kNN_metrics[0]
-
-#         aucs[i] = auc
-#         # print(auc)
-
-#     return metric_dict, np.mean(aucs), np.std(aucs)
-
-
-# def kNNPerformanceEvaluationAcc(
-#     train_matrix, test_matrix, train_labels, test_labels, nNeighbor
-# ):
-#     """
-#     Splits the test matrix into 5 sections with even length to get the performance metrics used to make the ROC Curve plots.
-
-#     train_matrix: 2D np arrray of distances used for training the kNN model; shape (N,N), N is the number of training samples
-#     test_matrix: 2D np array of distances used for testing the kNN model; shape (M, N), M is the number of testing samples
-#     train_labels: labels for the training set; shape (N,)
-#     test_labels: labels for both the testing set. shape(M,)
-#     nNeighbor: the hyperparameter for the kNN model
-
-#     return: metric_dict: a dictionary that contains lists of, in order, [auc, fpr, tpr, si, fprInv, f1_score], for each evaluation of the splitted test matrix
-#     """
-
-#     M = test_labels.shape[0]
-#     assert M % 5 == 0, "the length of the testing sample must be divisible by 5"
-#     test_length = M // 5
-
-#     accs = np.zeros(5)
-
-#     knn = KNeighborsClassifier(n_neighbors=nNeighbor, metric="precomputed")
-#     knn.fit(train_matrix, train_labels)
-
-#     for i in range(5):
-#         i_th_test_matrix = test_matrix[i * test_length : (i + 1) * test_length, :]
-#         i_th_test_labels = test_labels[i * test_length : (i + 1) * test_length]
-
-#         pred = knn.predict(i_th_test_matrix)
-#         acc = accuracy_score(i_th_test_labels, pred)
-#         # print(i_th_test_labels)
-#         # print(pred)
-
-#         accs[i] = acc
-#         # print(auc)
-
-#     return np.mean(accs), np.std(accs)
-
-
 def knn_with_features(
     X: np.ndarray,
     y: np.ndarray,
     k_list: list[int],
+    metric: str = "euclidean",
     return_auc_list: bool = False,
     random_state: int = 42,
 ):
@@ -405,7 +306,7 @@ def knn_with_features(
     # --- Evaluate k values on validation set ---
     val_auc_list = []
     for k in k_list:
-        model = KNeighborsClassifier(n_neighbors=k, metric="cosine", n_jobs=-1)
+        model = KNeighborsClassifier(n_neighbors=k, metric=metric, n_jobs=-1)
         model.fit(X_train, y_train)
 
         y_val_pred = model.predict_proba(X_val)[:, 1]
@@ -417,10 +318,124 @@ def knn_with_features(
     best_k = k_list[best_idx]
 
     # --- Retrain using train+val data ---
-    best_model = KNeighborsClassifier(n_neighbors=best_k, metric="cosine", n_jobs=-1)
+    best_model = KNeighborsClassifier(n_neighbors=best_k, metric=metric, n_jobs=-1)
     best_model.fit(X_trainval, y_trainval)
 
     # --- Evaluate on test set ---
+    y_test_pred = best_model.predict_proba(X_test)[:, 1]
+    test_auc = roc_auc_score(y_test, y_test_pred)
+
+    if return_auc_list:
+        return test_auc, best_k, val_auc_list
+    return test_auc, best_k
+
+
+def knn_with_precomputed(
+    dist_matrix: np.ndarray,
+    y: np.ndarray,
+    k_list: list[int],
+    return_auc_list: bool = False,
+    random_state: int = 42,
+):
+    """
+    Perform k-Nearest Neighbors (kNN) classification using a precomputed distance matrix
+    with an automatic 60/20/20 train/validation/test split.
+
+    Parameters
+    ----------
+    dist_matrix : np.ndarray of shape (n_samples, n_samples)
+        Square, precomputed distance matrix (zeros on diagonal).
+        Rows represent query points, columns represent reference points.
+
+    y : np.ndarray of shape (n_samples,)
+        Binary class labels (0 or 1).
+
+    k_list : list[int]
+        List of k (neighbor counts) to evaluate during model selection.
+
+    return_auc_list : bool, optional (default=False)
+        If True, also returns the validation AUC scores for all k.
+
+    random_state : int, optional (default=42)
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    test_auc : float
+        AUC score on the test set using the best-performing k.
+
+    best_k : int
+        The neighbor count (k) that achieved the highest validation AUC.
+
+    val_auc_list : list[float], optional
+        Validation AUCs for each k (only returned if `return_auc_list=True`).
+    """
+
+    # --- Shuffle dataset (Rows AND Columns) ---
+    # When using a precomputed matrix, we must shuffle the indices identically
+    # for both axes to preserve the relationship between sample i and sample j.
+    rng = np.random.default_rng(random_state)
+    indices = rng.permutation(len(dist_matrix))
+
+    # Shuffle matrix: reorder rows, then reorder columns
+    dist_matrix = dist_matrix[indices][:, indices]
+    y = y[indices]
+
+    # --- Split sizes ---
+    n_samples = len(dist_matrix)
+    n_train = int(0.6 * n_samples)
+    n_val = int(0.2 * n_samples)
+    # n_test is the remainder
+
+    # --- Dataset splits (Labels) ---
+    y_train = y[:n_train]
+    y_val = y[n_train : n_train + n_val]
+    y_trainval = y[: n_train + n_val]
+    y_test = y[n_train + n_val :]
+
+    # --- Dataset splits (Distance Matrices) ---
+    # For metric='precomputed':
+    # 1. Fit requires a square matrix (n_train x n_train)
+    # 2. Predict requires a rectangular matrix (n_query x n_reference)
+
+    # Training set (Square: Train vs Train)
+    X_train = dist_matrix[:n_train, :n_train]
+
+    # Validation set (Rectangular: Val rows vs Train cols)
+    X_val = dist_matrix[n_train : n_train + n_val, :n_train]
+
+    # Combined Train+Val set (Square: TrainVal vs TrainVal)
+    X_trainval = dist_matrix[: n_train + n_val, : n_train + n_val]
+
+    # Test set (Rectangular: Test rows vs TrainVal cols)
+    # Note: We query Test points against the combined Train+Val set
+    X_test = dist_matrix[n_train + n_val :, : n_train + n_val]
+
+    # --- Evaluate k values on validation set ---
+    val_auc_list = []
+    for k in k_list:
+        # Crucial: Set metric to 'precomputed'
+        model = KNeighborsClassifier(n_neighbors=k, metric="precomputed", n_jobs=-1)
+        model.fit(X_train, y_train)
+
+        # X_val shape is (n_val_samples, n_train_samples)
+        y_val_pred = model.predict_proba(X_val)[:, 1]
+        val_auc = roc_auc_score(y_val, y_val_pred)
+        val_auc_list.append(val_auc)
+
+    # --- Select best k ---
+    best_idx = int(np.argmax(val_auc_list))
+    best_k = k_list[best_idx]
+
+    # --- Retrain using train+val data ---
+    best_model = KNeighborsClassifier(
+        n_neighbors=best_k, metric="precomputed", n_jobs=-1
+    )
+    # Fit on the larger square matrix
+    best_model.fit(X_trainval, y_trainval)
+
+    # --- Evaluate on test set ---
+    # Predict using the distances from Test samples to TrainVal samples
     y_test_pred = best_model.predict_proba(X_test)[:, 1]
     test_auc = roc_auc_score(y_test, y_test_pred)
 

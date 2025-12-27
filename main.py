@@ -4,10 +4,11 @@ import logging
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
-from config_utils import update_config_from_prev
+from utils.config_utils import update_config_from_prev
 
 log = logging.getLogger("main")
 OmegaConf.register_new_resolver("mul", lambda a, b: int(a) * int(b))
+OmegaConf.register_new_resolver("add", lambda a, b: int(a) + int(b))
 
 @hydra.main(config_path="config", config_name="default", version_base=None)
 def main(cfg: DictConfig):

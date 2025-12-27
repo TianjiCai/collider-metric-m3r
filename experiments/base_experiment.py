@@ -16,6 +16,8 @@ class BaseExperiment:
         self.events_per_class = (
             100000
             if self.dataset_size == "full"
+            else 10000
+            if self.dataset_size == "large"
             else 4000
             if self.dataset_size == "medium"
             else 1000

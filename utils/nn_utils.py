@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 class MLP(nn.Module):
     def __init__(
-        self, input_dim, hidden_dims, output_dim, activation='relu', dropout=0.0
+        self, input_dim, hidden_dims, output_dim, activation="relu", dropout=0.0
     ):
         super(MLP, self).__init__()
         layers = []
@@ -17,7 +17,7 @@ class MLP(nn.Module):
         # self.act = getattr(F, activation)
         for hidden_dim in hidden_dims:
             layers.append(nn.Linear(prev_dim, hidden_dim))
-            layers.append(nn.ReLU() if activation == 'relu' else nn.Tanh())
+            layers.append(nn.ReLU() if activation == "relu" else nn.Tanh())
             if dropout > 0:
                 layers.append(nn.Dropout(dropout))
             prev_dim = hidden_dim
@@ -27,6 +27,73 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.network(x)
+
+
+class TwoTowerMLP(nn.Module):
+    def __init__(
+        self,
+        kin_dim,
+        part_id_dim,
+        kin_hidden_dims,
+        part_hidden_dims,
+        fusion_hidden_dims,
+        output_dim,
+        activation="relu",
+        dropout=0.0,
+    ):
+        super().__init__()
+
+        self.kin_dim = kin_dim
+        self.part_id_dim = part_id_dim
+        act = nn.ReLU if activation == "relu" else nn.Tanh
+
+        # ----- Kinematics tower -----
+        kin_layers = []
+        prev_dim = kin_dim
+        for h in kin_hidden_dims:
+            kin_layers.append(nn.Linear(prev_dim, h))
+            kin_layers.append(act())
+            if dropout > 0:
+                kin_layers.append(nn.Dropout(dropout))
+            prev_dim = h
+        self.kin_net = nn.Sequential(*kin_layers)
+
+        # ----- Particle-ID tower -----
+        part_layers = []
+        prev_dim = part_id_dim
+        for h in part_hidden_dims:
+            part_layers.append(nn.Linear(prev_dim, h))
+            part_layers.append(act())
+            if dropout > 0:
+                part_layers.append(nn.Dropout(dropout))
+            prev_dim = h
+        self.part_net = nn.Sequential(*part_layers)
+
+        # ----- Fusion head -----
+        fusion_layers = []
+        prev_dim = kin_hidden_dims[-1] + part_hidden_dims[-1]
+        for h in fusion_hidden_dims:
+            fusion_layers.append(nn.Linear(prev_dim, h))
+            fusion_layers.append(act())
+            if dropout > 0:
+                fusion_layers.append(nn.Dropout(dropout))
+            prev_dim = h
+
+        fusion_layers.append(nn.Linear(prev_dim, output_dim))
+        self.fusion_net = nn.Sequential(*fusion_layers)
+
+    def forward(self, x):
+        """
+        x: (batch_size, kin_dim + part_id_dim)
+        """
+        x_kin = x[:, :self.kin_dim]
+        x_part = x[:, self.kin_dim : self.kin_dim + self.part_id_dim]
+
+        kin_emb = self.kin_net(x_kin)
+        part_emb = self.part_net(x_part)
+
+        fused = torch.cat([kin_emb, part_emb], dim=1)
+        return self.fusion_net(fused)
 
 
 class ResNetBlock(nn.Module):
@@ -228,6 +295,7 @@ def evaluate_network_torch(
     correct = 0
     total = 0
     all_preds = []
+    all_pred_probs = []
 
     with torch.no_grad():
         for i in range(num_batches):
@@ -235,14 +303,16 @@ def evaluate_network_torch(
             batch_y = y_test_tensor[i * batch_size : (i + 1) * batch_size]
 
             outputs = model(batch_X)
+            all_pred_probs.append(F.softmax(outputs, dim=1).cpu())
             _, predicted = torch.max(outputs.data, 1)
             all_preds.append(predicted.cpu())
-            
+
             total += batch_y.size(0)
             correct += (predicted == batch_y).sum().item()
 
     accuracy = correct / total
     all_preds = torch.cat(all_preds).numpy()
+    all_pred_probs = torch.cat(all_pred_probs, dim=0).numpy()
     print(f"Test Accuracy: {accuracy:.4f}")
-    
-    return accuracy, all_preds
+
+    return accuracy, all_preds, all_pred_probs

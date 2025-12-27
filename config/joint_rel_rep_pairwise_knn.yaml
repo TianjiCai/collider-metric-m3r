@@ -1,0 +1,22 @@
+run_name: joint_rel_rep_pairwise_knn
+experiment: JointRelRepPairwiseKNN
+
+defaults:
+  - default
+  - _self_
+
+metric_1: "w2"
+metric_2: "sw"
+
+metric_2_scaling: 2
+
+anchor_per_class: 100
+data_path: data/dist_mat/
+seed: 42
+knn_sim_metric: "euclidean"
+
+plot_only: false
+
+hydra:
+  run:
+    dir: runs/${run_name}/${metric_1}_${metric_2}/${now:%Y-%m-%d_%H-%M-%S}

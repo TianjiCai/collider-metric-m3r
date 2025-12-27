@@ -11,35 +11,6 @@ metric: "w2"
 dataset_size: "medium"
 n_classes: 8
 
-rel_rep_multiclass_nn:
-  use_gpu: true
-  train: true
-  center: false
-
-  anchor_per_class: 100
-
-  data_path: rel_rep_data/${metric}/
-
-  training:
-    val_size: 0.2
-    epochs: 512
-    patience: null
-    batch_size: 512
-    learning_rate: 1e-4
-    loss_fn: CrossEntropyLoss
-    optimizer: 
-      _target_: torch.optim.AdamW
-      weight_decay: 1e-4
-    seed: 42
-
-  network:
-    _target_: utils.nn_utils.MLP
-    input_dim: ${mul:${n_classes},${rel_rep_multiclass_nn.anchor_per_class}}
-    hidden_dims: [2048, 1024, 256, 128]
-    output_dim: ${n_classes}
-    activation: relu
-    dropout: 0.0
-
 hydra:
   run:
     dir: runs/${run_name}/${metric}/${now:%Y-%m-%d_%H-%M-%S}

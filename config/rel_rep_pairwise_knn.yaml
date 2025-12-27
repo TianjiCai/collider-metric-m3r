@@ -8,5 +8,6 @@ defaults:
 anchor_per_class: 100
 data_path: data/dist_mat/
 seed: 42
+knn_sim_metric: euclidean
 
 plot_only: false

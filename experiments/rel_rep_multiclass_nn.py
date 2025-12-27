@@ -1,6 +1,6 @@
 from experiments.base_experiment import BaseExperiment
 from omegaconf import DictConfig
-import nn_utils
+import utils.nn_utils
 import torch
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -15,35 +15,49 @@ class RelRepMulticlassNN(BaseExperiment):
         super().__init__(config, exp_dir)
         self.device = (
             "cuda"
-            if config.rel_rep_multiclass_nn.use_gpu and torch.cuda.is_available()
+            if config.use_gpu and torch.cuda.is_available()
             else "mps"
-            if config.rel_rep_multiclass_nn.use_gpu
+            if config.use_gpu
             and torch.backends.mps.is_available()
             else "cpu"
         )
-        self.data_path = config.rel_rep_multiclass_nn.data_path
-        self.train = config.rel_rep_multiclass_nn.train
-        self.anchor_per_class = config.rel_rep_multiclass_nn.anchor_per_class
-        self.train_params = config.rel_rep_multiclass_nn.training
-        self.network = config.rel_rep_multiclass_nn.network
-        self.center = config.rel_rep_multiclass_nn.center
+        self.data_path = config.data_path
+        self.train = config.train
+        self.anchor_per_class = config.anchor_per_class
+        self.train_params = config.training
+        self.network = config.network
+        self.center = config.center
+        self.include_kin = config.include_kin
+        self.include_part_ids = config.include_part_ids
 
     def run(self):
         # model.to(self.device)
         # print(model)
 
         # assert False
-        rel_reps = np.load(
-            f"{self.project_path}{self.data_path}{self.metric}_{self.dataset_size}_rel_rep_{self.anchor_per_class}.npy"
-        )
+        rel_reps_blocks = []
+        if self.include_kin:
+            kin_rel_reps = np.load(
+                f"{self.project_path}{self.data_path}{self.dataset_size}/{self.metric}_{self.dataset_size}_rel_rep_{self.anchor_per_class}.npy"
+            )
+            rel_reps_blocks.append(kin_rel_reps)
+        if self.include_part_ids:
+            part_id_rel_reps = np.load(f"{self.project_path}{self.data_path}{self.dataset_size}/part_ids_{self.dataset_size}_rel_rep_{self.anchor_per_class}.npy")
+            rel_reps_blocks.append(part_id_rel_reps)
+            
+        rel_reps = np.concatenate(rel_reps_blocks, axis=1)
+        self.log.info(f"Relative representation shape: {rel_reps.shape}")
 
         if self.center:
             col_means = np.mean(rel_reps, axis=0)
             rel_reps -= col_means
             assert np.allclose(np.mean(rel_reps, axis=0), 0)
 
-        # This line needed to be changed for medium and mini dataset, only works for full dataset now
-        labels = np.repeat(np.arange(self.n_classes), self.events_per_class)[1:]
+        if self.dataset_size == "full":
+            # This line needed to be changed for medium and mini dataset, only works for full dataset now
+            labels = np.repeat(np.arange(self.n_classes), self.events_per_class)[1:]
+        else:
+            labels = np.repeat(np.arange(self.n_classes), self.events_per_class)
 
         X_train, X_test, y_train, y_test = train_test_split(
             rel_reps,
@@ -56,13 +70,14 @@ class RelRepMulticlassNN(BaseExperiment):
         self.y_test = y_test
         del rel_reps
 
+        # print(self.network)
         model = instantiate(self.network)
 
         if self.train:
             # print("Training...")
             self.log.info("Training...")
             trained_model, train_loss_history, val_loss_history = (
-                nn_utils.train_network_torch(
+                utils.nn_utils.train_network_torch(
                     model,
                     X_train,
                     y_train,
@@ -93,7 +108,7 @@ class RelRepMulticlassNN(BaseExperiment):
         #     )
         #     model.load_state_dict(model_state_dict)
         #     self.log.info("Evaluating...")
-        #     _, preds = nn_utils.evaluate_network_torch(
+        #     _, preds = utils.nn_utils.evaluate_network_torch(
         #         model, X_test, y_test, device=self.device
         #     )
         #     np.save(f"{self.exp_dir}/predictions.npy", preds)
@@ -104,10 +119,11 @@ class RelRepMulticlassNN(BaseExperiment):
         model.load_state_dict(model_state_dict)
 
         self.log.info("Evaluating...")
-        _, self.preds = nn_utils.evaluate_network_torch(
+        _, self.preds, self.pred_probs = utils.nn_utils.evaluate_network_torch(
             model, X_test, y_test, device=self.device
         )
         np.save(f"{self.exp_dir}/predictions.npy", self.preds)
+        np.save(f"{self.exp_dir}/pred_probabilities.npy", self.pred_probs)
         self.plot()
 
     def plot_loss_history(self, train_loss_history, val_loss_history=None):
@@ -127,21 +143,20 @@ class RelRepMulticlassNN(BaseExperiment):
 
     def plot_cm(self, y_preds, y_truth):
         class_names = [
-            "QCD",
-            "H->BB",
-            "H->CC",
-            "H->GG",
-            "H->4Q",
-            "W->QQ",
-            "Z->QQ",
-            "TTbar",
+            "qcd",
+            "h->bb",
+            "h->cc",
+            "h->gg",
+            "h->4q",
+            "w->qq",
+            "z->qq",
+            "ttbar",
         ]
-
         self.log.info("Plotting the confusion matrix...")
-        cm = confusion_matrix(y_truth, y_preds)
+        cm = confusion_matrix(y_truth, y_preds, normalize='true')
 
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
-        disp.plot(cmap="Blues", values_format="d")
+        disp.plot(cmap="Blues", values_format=".3f")
 
         plt.title("Confusion Matrix")
         os.makedirs(os.path.join(self.exp_dir, "plots"), exist_ok=True)

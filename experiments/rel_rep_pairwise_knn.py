@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from itertools import combinations
-import ot_utils
-import comparison_utils
+import utils.ot_utils
+import utils.comparison_utils
 import os
 
 
@@ -16,6 +16,7 @@ class RelRepPairwiseKNN(BaseExperiment):
         self.data_path = config.data_path
         self.seed = config.seed
         self.plot_only = config.plot_only
+        self.knn_sim_metric = config.knn_sim_metric
         # self.log.info("Value of plot_only:", self.plot_only)
 
     def run(self):
@@ -23,7 +24,7 @@ class RelRepPairwiseKNN(BaseExperiment):
             file = np.load(
                 f"{self.exp_dir}/results/knn_rel_rep_{self.dataset_size}_{self.metric}_{self.anchor_per_class}.npz"
             )
-            aucs = file['test_aucs']
+            aucs = file["test_aucs"]
             self.plot(aucs)
             return
         test_aucs = np.zeros((8, 8))
@@ -45,13 +46,13 @@ class RelRepPairwiseKNN(BaseExperiment):
                 + f"{self.data_path}{self.metric}/{self.dataset_size}_{self.metric}/{self.metric}_block_{i}_{j}.npy"
             )
 
-            big_matrix = ot_utils.combine_distance_blocks(
+            big_matrix = utils.ot_utils.combine_distance_blocks(
                 [self_matrix_1_file, off_diag_matrix_file, self_matrix_2_file]
             )
 
             labels = np.repeat([0, 1], self.events_per_class)
 
-            rel_reps = comparison_utils.relative_rep(
+            rel_reps = utils.comparison_utils.relative_rep(
                 big_matrix,
                 labels,
                 num_classes=2,
@@ -63,8 +64,8 @@ class RelRepPairwiseKNN(BaseExperiment):
                 range(1, int(np.sqrt(self.events_per_class * 2) * 2), 2)
             )
 
-            test_auc, best_k = comparison_utils.knn_with_features(
-                rel_reps, labels, neighbor_list
+            test_auc, best_k = utils.comparison_utils.knn_with_features(
+                rel_reps, labels, neighbor_list, metric=self.knn_sim_metric
             )
 
             test_aucs[i, j] = test_auc

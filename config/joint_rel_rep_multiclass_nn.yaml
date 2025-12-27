@@ -6,6 +6,8 @@ metric_1: "w2"
 metric_2: "sw"
 metric_3: null
 
+metric_2_scaling: 2
+
 data_path_1: rel_rep_data/${metric_1}/
 data_path_2: rel_rep_data/${metric_2}/
 

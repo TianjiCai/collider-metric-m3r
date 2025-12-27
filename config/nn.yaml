@@ -1,0 +1,18 @@
+use_gpu: true
+train: true
+center: false
+
+training:
+  val_size: 0.2
+  epochs: 250
+  patience: null
+  batch_size: 512
+  learning_rate: 1e-4
+  loss_fn: CrossEntropyLoss
+  optimizer: 
+    _target_: torch.optim.AdamW
+    weight_decay: 1e-4
+  seed: 42
+
+defaults:
+  - network: mlp

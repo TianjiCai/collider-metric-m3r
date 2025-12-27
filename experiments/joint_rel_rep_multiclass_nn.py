@@ -1,6 +1,6 @@
 from experiments.base_experiment import BaseExperiment
 from omegaconf import DictConfig
-import nn_utils
+import utils.nn_utils
 import torch
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -31,6 +31,7 @@ class JointRelRepMulticlassNN(BaseExperiment):
         self.anchor_per_class = config.rel_rep_multiclass_nn.anchor_per_class
         self.train_params = config.rel_rep_multiclass_nn.training
         self.network = config.rel_rep_multiclass_nn.network
+        self.metric_2_scaling = config.metric_2_scaling
 
     def run(self):
         # model.to(self.device)
@@ -47,13 +48,15 @@ class JointRelRepMulticlassNN(BaseExperiment):
         )
 
         rel_reps_2 = rel_reps_2.astype(np.float32)
-        rel_reps_2*=10000000
+        rel_reps_2 *= self.metric_2_scaling
 
         rel_reps = np.concatenate((rel_reps_1, rel_reps_2), axis=1)
+        print(rel_reps.shape)
         del rel_reps_1, rel_reps_2
 
         if self.center:
             col_means = np.mean(rel_reps, axis=0)
+            print(col_means)
             rel_reps -= col_means
             # assert np.allclose(np.mean(rel_reps, axis=0), 0, ), np.mean(rel_reps, axis=0)
 
@@ -77,7 +80,7 @@ class JointRelRepMulticlassNN(BaseExperiment):
             # print("Training...")
             self.log.info("Training...")
             trained_model, train_loss_history, val_loss_history = (
-                nn_utils.train_network_torch(
+                utils.nn_utils.train_network_torch(
                     model,
                     X_train,
                     y_train,
@@ -108,7 +111,7 @@ class JointRelRepMulticlassNN(BaseExperiment):
         #     )
         #     model.load_state_dict(model_state_dict)
         #     self.log.info("Evaluating...")
-        #     _, preds = nn_utils.evaluate_network_torch(
+        #     _, preds = utils.nn_utils.evaluate_network_torch(
         #         model, X_test, y_test, device=self.device
         #     )
         #     np.save(f"{self.exp_dir}/predictions.npy", preds)
@@ -119,7 +122,7 @@ class JointRelRepMulticlassNN(BaseExperiment):
         model.load_state_dict(model_state_dict)
 
         self.log.info("Evaluating...")
-        _, self.preds = nn_utils.evaluate_network_torch(
+        _, self.preds = utils.nn_utils.evaluate_network_torch(
             model, X_test, y_test, device=self.device
         )
         np.save(f"{self.exp_dir}/predictions.npy", self.preds)
@@ -142,21 +145,21 @@ class JointRelRepMulticlassNN(BaseExperiment):
 
     def plot_cm(self, y_preds, y_truth):
         class_names = [
-            "QCD",
-            "H->BB",
-            "H->CC",
-            "H->GG",
-            "H->4Q",
-            "W->QQ",
-            "Z->QQ",
-            "TTbar",
+            "qcd",
+            "h->bb",
+            "h->cc",
+            "h->gg",
+            "h->4q",
+            "w->qq",
+            "z->qq",
+            "ttbar",
         ]
 
         self.log.info("Plotting the confusion matrix...")
-        cm = confusion_matrix(y_truth, y_preds)
+        cm = confusion_matrix(y_truth, y_preds, normalize='true')
 
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
-        disp.plot(cmap="Blues", values_format="d")
+        disp.plot(cmap="Blues", values_format=".3f")
 
         plt.title("Confusion Matrix")
         os.makedirs(os.path.join(self.exp_dir, "plots"), exist_ok=True)

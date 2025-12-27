@@ -1,0 +1,39 @@
+run_name: joint_rel_rep_pairwise_nn
+experiment: JointRelRepPairwiseNN
+
+defaults:
+  - default
+  - nn
+  - _self_
+
+num_metric: 2
+metric_1: "w2"
+metric_2: "sw"
+metric_3: null
+
+metric_2_scaling: 2
+
+anchor_per_class: 100
+data_path: data/dist_mat/
+seed: 42
+include_kin: true
+include_part_ids: false
+part_ids_path: data/${dataset_size}_dataset/
+num_ids: 6
+
+kin_dim: ${mul:${mul:${mul:2,${anchor_per_class}},${include_kin}}, ${num_metric}}
+part_id_dim: ${mul:${mul:${mul:${num_ids}, ${anchor_per_class}},2},${include_part_ids}}
+
+plot_only: false
+
+network:
+  # input_dim: ${add:${kin_dim},${part_id_dim}}
+  kin_dim: ${kin_dim}
+  part_id_dim: ${part_id_dim}
+  kin_hidden_dims: [1024, 512, 256]
+  part_hidden_dims: [2048, 1024, 256]
+  fusion_hidden_dims: [256, 128]
+
+hydra:
+  run:
+    dir: runs/${run_name}/${metric_1}_${metric_2}/${now:%Y-%m-%d_%H-%M-%S}

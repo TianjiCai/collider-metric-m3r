@@ -1,6 +1,7 @@
 run_name: rerun
 prev_exp_dir: ???
 plot_only: true
+metric_2_scaling: 2
 
 rel_rep_multiclass_nn:
   train: false
