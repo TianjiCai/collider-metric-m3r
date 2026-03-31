@@ -11,6 +11,13 @@ metric_2_scaling: 2
 data_path_1: rel_rep_data/${metric_1}/
 data_path_2: rel_rep_data/${metric_2}/
 
+include_kin: true
+include_part_ids: false
+num_ids: 6
+
+kin_dim: ${mul:${mul:${n_classes},${anchor_per_class}},${include_kin}}
+part_id_dim: ${mul:${mul:${mul:${num_ids},${anchor_per_class}},${n_classes}},${include_part_ids}}
+
 rel_rep_multiclass_nn:
   # center: false
   network:

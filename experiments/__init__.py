@@ -5,4 +5,5 @@ from experiments.joint_rel_rep_multiclass_nn import JointRelRepMulticlassNN
 from experiments.joint_rel_rep_pairwise_knn import JointRelRepPairwiseKNN
 from experiments.joint_rel_rep_pairwise_nn import JointRelRepPairwiseNN
 from experiments.rel_rep_pairwise_nn import RelRepPairwiseNN
+from experiments.rel_rep_pairwise_bdt import RelRepPairwiseBDT
 from experiments.abs_pairwise_knn import AbsPairwiseKNN

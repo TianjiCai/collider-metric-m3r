@@ -21,8 +21,7 @@ class RelRepPairwiseNN(BaseExperiment):
             "cuda"
             if config.use_gpu and torch.cuda.is_available()
             else "mps"
-            if config.use_gpu
-            and torch.backends.mps.is_available()
+            if config.use_gpu and torch.backends.mps.is_available()
             else "cpu"
         )
         self.anchor_per_class = config.anchor_per_class
@@ -31,16 +30,25 @@ class RelRepPairwiseNN(BaseExperiment):
         self.plot_only = config.plot_only
         self.train_params = config.training
         self.network = config.network
+        self.kin_metrics = []
+        self.part_id_metrics = []
+        all_kin_metrics = ["w2", "sw", "ps"]
+        for i, tower_spec in enumerate(self.network.tower_specs):
+            spec_name = tower_spec.name
+            if spec_name in all_kin_metrics:
+                self.kin_metrics.append(spec_name)
+            else:
+                self.part_id_metrics.append(spec_name)
+            self.network.tower_specs[i].in_dim = self.anchor_per_class * 2
+        self.network.output_dim = 2
         self.train = config.train
-        self.include_part_ids = config.include_part_ids
         self.part_ids_path = config.part_ids_path
-        self.include_kin = config.include_kin
         # self.log.info("Value of plot_only:", self.plot_only)
 
     def run(self):
         if self.plot_only:
             file = np.load(
-                f"{self.exp_dir}/results/mlp_rel_rep_{self.dataset_size}_{self.metric}_{self.anchor_per_class}.npz"
+                f"{self.exp_dir}/results/mlp_rel_rep_{self.dataset_size}_{self.anchor_per_class}.npz"
             )
             aucs = file["test_aucs"]
             self.plot(aucs)
@@ -50,53 +58,67 @@ class RelRepPairwiseNN(BaseExperiment):
         for i, j in tqdm(
             combinations(range(8), 2), total=len(list(combinations(range(8), 2)))
         ):
-            self_matrix_1_file = (
-                self.project_path
-                + f"{self.data_path}{self.metric}/{self.dataset_size}_{self.metric}/{self.metric}_block_{i}_{i}.npy"
-            )
-            self_matrix_2_file = (
-                self.project_path
-                + f"{self.data_path}{self.metric}/{self.dataset_size}_{self.metric}/{self.metric}_block_{j}_{j}.npy"
-            )
-            off_diag_matrix_file = (
-                self.project_path
-                + f"{self.data_path}{self.metric}/{self.dataset_size}_{self.metric}/{self.metric}_block_{i}_{j}.npy"
-            )
-
-            big_matrix = utils.ot_utils.combine_distance_blocks(
-                [self_matrix_1_file, off_diag_matrix_file, self_matrix_2_file]
-            )
-
-            labels = np.repeat([0, 1], self.events_per_class)
-            # print(labels.shape)
-
             rel_rep_blocks = []
-            
-            rel_reps_kin = None
-            part_ids_rel_rep = None
+            for kin_metric in self.kin_metrics:
+                self_matrix_1_file = (
+                    self.project_path
+                    + f"{self.data_path}{kin_metric}/{self.dataset_size}_{kin_metric}/{kin_metric}_block_{i}_{i}.npy"
+                )
+                self_matrix_2_file = (
+                    self.project_path
+                    + f"{self.data_path}{kin_metric}/{self.dataset_size}_{kin_metric}/{kin_metric}_block_{j}_{j}.npy"
+                )
+                off_diag_matrix_file = (
+                    self.project_path
+                    + f"{self.data_path}{kin_metric}/{self.dataset_size}_{kin_metric}/{kin_metric}_block_{i}_{j}.npy"
+                )
 
-            if self.include_kin:
-                rel_reps_kin = utils.comparison_utils.relative_rep(
+                big_matrix = utils.ot_utils.combine_distance_blocks(
+                    [self_matrix_1_file, off_diag_matrix_file, self_matrix_2_file]
+                )
+
+                labels = np.repeat([0, 1], self.events_per_class)
+                
+                rel_rep = utils.comparison_utils.relative_rep(
                     big_matrix,
                     labels,
                     num_classes=2,
                     anchors_per_class=self.anchor_per_class,
                     seed=42,
                 )
-                rel_rep_blocks.append(rel_reps_kin)
-            
-            del big_matrix
+                
+                # get the overall mean and std of the rel_rep
+                # mean = np.mean(rel_rep)
+                # std = np.std(rel_rep)
+                # print(f"Mean: {mean}, Std: {std}")
+                
+                # rel_rep = (rel_rep - mean) / std
 
-            if self.include_part_ids:
-                part_ids_rel_rep = self.compute_part_ids_rel_rep(i, j, seed=self.seed)
-                rel_rep_blocks.append(part_ids_rel_rep)
-            
+                rel_rep_blocks.append(
+                    rel_rep
+                )
+
+                del big_matrix
+
+            for part_id_metric in self.part_id_metrics:
+                part_id_rel_rep = self.compute_part_ids_rel_rep(
+                    i, j, part_id_metric, self.seed
+                )
+                # get the overall mean and std of the part_id_rel_rep
+                # mean = np.mean(part_id_rel_rep)
+                # std = np.std(part_id_rel_rep)
+                # print(f"Mean: {mean}, Std: {std}")
+                
+                # part_id_rel_rep = (part_id_rel_rep - mean) / std
+                
+                rel_rep_blocks.append(part_id_rel_rep)
+
             if not rel_rep_blocks:
-                raise ValueError("No features selected: set include_kin and/or include_part_ids to True.")
-            
+                raise ValueError("No metrics selected.")
+
             final_rel_reps = np.concatenate(rel_rep_blocks, axis=1)
-            del rel_rep_blocks, rel_reps_kin, part_ids_rel_rep
-            
+            del rel_rep_blocks
+
             X_train, X_test, y_train, y_test = train_test_split(
                 final_rel_reps,
                 labels,
@@ -109,7 +131,6 @@ class RelRepPairwiseNN(BaseExperiment):
             # print("Model:", model)
 
             if self.train:
-                # print("Training...")
                 self.log.info("Training...")
                 trained_model, train_loss_history, val_loss_history = (
                     utils.nn_utils.train_network_torch(
@@ -140,11 +161,11 @@ class RelRepPairwiseNN(BaseExperiment):
                 trained_model, X_test, y_test, device=self.device
             )
             # np.save(f"{self.exp_dir}/predictions.npy", self.preds)
-            np.save(f"{self.exp_dir}/pred_probabilities.npy", self.pred_probs)
+            # np.save(f"{self.exp_dir}/pred_probabilities.npy", self.pred_probs)
             test_aucs[i, j] = roc_auc_score(y_test, self.pred_probs[:, 1])
 
         os.makedirs(os.path.join(self.exp_dir, "results"), exist_ok=True)
-        output_file_path = f"{self.exp_dir}/results/mlp_rel_rep_{self.dataset_size}_{self.metric}_{self.anchor_per_class}.npz"
+        output_file_path = f"{self.exp_dir}/results/mlp_rel_rep_{self.dataset_size}_{self.anchor_per_class}.npz"
         np.savez(file=output_file_path, test_aucs=test_aucs)
         self.plot(test_aucs)
 
@@ -153,9 +174,7 @@ class RelRepPairwiseNN(BaseExperiment):
         mask = np.triu(np.ones_like(test_aucs, dtype=bool), k=1)
         plot_data = np.where(mask, test_aucs, np.nan)
 
-        vals = plot_data[~np.isnan(plot_data)]
-        nonzero = vals[vals != 0]
-        vmin, vmax = float(nonzero.min()), float(nonzero.max())
+        vmin, vmax = 0.5, 1.0
 
         fig, ax = plt.subplots(figsize=(6, 5))
         cmap = plt.get_cmap("viridis").copy()
@@ -169,14 +188,12 @@ class RelRepPairwiseNN(BaseExperiment):
             [f"{i + 1}" for i in range(self.n_classes)], rotation=45, ha="right"
         )
         ax.set_yticklabels([f"{i + 1}" for i in range(self.n_classes)])
-        if self.include_kin and not self.include_part_ids:
-            feat = "Kin"
-        elif not self.include_kin and self.include_part_ids:
-            feat = "PartIDs"
-        else:
-            feat = "Kin+PartIDs"
+        if len(self.kin_metrics) >= 3:
+            self.kin_metrics = 'All Kin'
+        if len(self.part_id_metrics) >= 6:
+            self.part_id_metrics = 'All PIDs'
         ax.set_title(
-            f"MLP AUCs, {self.metric} Rel, {self.anchor_per_class} Anc/Class, {feat}"
+            f"MLP AUCs, {self.kin_metrics} {self.part_id_metrics} Rel, {self.anchor_per_class} Anc/Class"
         )
 
         cbar = plt.colorbar(im, ax=ax)
@@ -201,7 +218,7 @@ class RelRepPairwiseNN(BaseExperiment):
             dpi=300,
         )
 
-    def compute_part_ids_rel_rep(self, i, j, seed):
+    def compute_part_ids_rel_rep(self, i, j, part_id_metric, seed):
         class_labels = np.load(self.part_ids_path + "class_labels.npz")
         class_i = next(k for k, v in class_labels.items() if v == i)
         class_j = next(k for k, v in class_labels.items() if v == j)
@@ -218,23 +235,15 @@ class RelRepPairwiseNN(BaseExperiment):
         else:
             raise ValueError("Invalid dataset size")
 
-        # shape = (dataset_size, 150, 6)
         part_ids_i = np.load(
-            self.part_ids_path + f"{class_i}_part_ids_{dataset_size}.npy"
-        )
-        # print("Shape of part_ids_i:", part_ids_i.shape)
+            self.part_ids_path + f"{class_i}_part_ids_{dataset_size}.npz"
+        )[part_id_metric]
         part_ids_j = np.load(
-            self.part_ids_path + f"{class_j}_part_ids_{dataset_size}.npy"
-        )
-        # print("Shape of part_ids_j:", part_ids_j.shape)
-        # self.log.info("Shape of part_ids_i:", part_ids_i.shape)
-        # self.log.info("Shape of part_ids_j:", part_ids_j.shape)
+            self.part_ids_path + f"{class_j}_part_ids_{dataset_size}.npz"
+        )[part_id_metric]
 
-        # shape (dataset_size, 6)
         part_ids_i_sum = np.sum(part_ids_i, axis=1)
         part_ids_j_sum = np.sum(part_ids_j, axis=1)
-        # self.log.info("Shape of part_ids_i_sum:", part_ids_i_sum.shape)
-        # self.log.info("Shape of part_ids_j_sum:", part_ids_j_sum.shape)
 
         np.random.seed(seed)
         labels = np.repeat([0, 1], self.events_per_class)
@@ -252,9 +261,7 @@ class RelRepPairwiseNN(BaseExperiment):
         big = np.concatenate([part_ids_i_sum, part_ids_j_sum], axis=0)
         anchors = big[anchors_indices]
 
-        diff = big[:, None, :] - anchors[None, :, :]  # (2*dataset_size, n_anchors, 6)
-        final = diff.transpose(0, 2, 1).reshape(
-            big.shape[0], -1
-        )  # (2*dataset_size, n_anchors*6)
+        diff = big[:, None] - anchors[None, :]
+        # print("diff.shape:", diff.shape)
 
-        return final
+        return diff

@@ -19,6 +19,12 @@ metric_comparison/
 joint_rep/
 legacy_files/
 runs/
+*.sh
+top_tagging/
+top_tagging*
+AGENTS.md
+env.yml
+paper_plots/
 
 .DS_Store
 centralFunctions.py

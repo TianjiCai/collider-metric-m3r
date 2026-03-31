@@ -9,15 +9,9 @@ defaults:
 anchor_per_class: 100
 data_path: data/dist_mat/
 seed: 42
-include_kin: true
-include_part_ids: false
 part_ids_path: data/${dataset_size}_dataset/
-num_ids: 6
 
 plot_only: false
-
-kin_dim: ${mul:${mul:2,${anchor_per_class}},${include_kin}}
-part_id_dim: ${mul:${mul:${mul:${num_ids}, ${anchor_per_class}},2},${include_part_ids}}
 
 hydra:
   run:

@@ -185,9 +185,7 @@ class JointRelRepPairwiseNN(BaseExperiment):
         mask = np.triu(np.ones_like(test_aucs, dtype=bool), k=1)
         plot_data = np.where(mask, test_aucs, np.nan)
 
-        vals = plot_data[~np.isnan(plot_data)]
-        nonzero = vals[vals != 0]
-        vmin, vmax = float(nonzero.min()), float(nonzero.max())
+        vmin, vmax = 0.5, 1.0
 
         fig, ax = plt.subplots(figsize=(6, 5))
         cmap = plt.get_cmap("viridis").copy()

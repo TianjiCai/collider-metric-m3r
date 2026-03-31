@@ -1,6 +1,6 @@
 _target_: utils.nn_utils.MLP
-# input_dim: ${add:${kin_dim},${part_id_dim}}
-input_dim: ???
+input_dim: ${add:${kin_dim},${part_id_dim}}
+# input_dim: ???
 hidden_dims: [2048, 1024, 256, 128]
 output_dim: ${n_classes}
 activation: relu

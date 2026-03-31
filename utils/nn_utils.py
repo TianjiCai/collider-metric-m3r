@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+from typing import List, Any, Sequence
 
 
 class MLP(nn.Module):
@@ -86,7 +86,7 @@ class TwoTowerMLP(nn.Module):
         """
         x: (batch_size, kin_dim + part_id_dim)
         """
-        x_kin = x[:, :self.kin_dim]
+        x_kin = x[:, : self.kin_dim]
         x_part = x[:, self.kin_dim : self.kin_dim + self.part_id_dim]
 
         kin_emb = self.kin_net(x_kin)
@@ -94,6 +94,147 @@ class TwoTowerMLP(nn.Module):
 
         fused = torch.cat([kin_emb, part_emb], dim=1)
         return self.fusion_net(fused)
+
+
+class MultiTowerMLP(nn.Module):
+    """
+    Hydra-friendly multi-tower MLP.
+    forward(x): x is a single tensor of shape (B, sum(in_dim)).
+
+    tower_specs: list of dict-like items, each with:
+      - name: str
+      - in_dim: int
+      - hidden_dims: list[int] (last is embedding dim)
+    """
+
+    def __init__(
+        self,
+        tower_specs: Sequence[Any],
+        fusion_hidden_dims: Sequence[int],
+        output_dim: int,
+        activation: str = "relu",
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        self.activation = activation
+        self.dropout = float(dropout)
+
+        tower_specs = self._as_list(tower_specs)
+        if len(tower_specs) == 0:
+            raise ValueError("tower_specs must have at least one tower spec.")
+
+        # Normalize specs to plain python dicts
+        self.tower_specs: List[dict] = []
+        for i, s in enumerate(tower_specs):
+            name, in_dim, hidden_dims = self._read_spec(s)
+            hidden_dims = self._as_list(hidden_dims)
+            if len(hidden_dims) == 0:
+                raise ValueError(f"Tower {i} ('{name}') hidden_dims cannot be empty.")
+
+            self.tower_specs.append(
+                {
+                    "name": str(name),
+                    "in_dim": int(in_dim),
+                    "hidden_dims": [int(h) for h in hidden_dims],
+                }
+            )
+
+        # Precompute slices
+        self._starts: List[int] = []
+        self._ends: List[int] = []
+        cursor = 0
+        for s in self.tower_specs:
+            self._starts.append(cursor)
+            cursor += s["in_dim"]
+            self._ends.append(cursor)
+        self.total_in_dim = cursor
+
+        # Tower embedding nets in order
+        self.tower_nets = nn.ModuleList(
+            [self._make_mlp(s["in_dim"], s["hidden_dims"]) for s in self.tower_specs]
+        )
+
+        # Fusion head
+        fusion_in_dim = sum(s["hidden_dims"][-1] for s in self.tower_specs)
+        fusion_hidden_dims = [int(h) for h in self._as_list(fusion_hidden_dims)]
+
+        fusion_layers: List[nn.Module] = []
+        prev = fusion_in_dim
+        for h in fusion_hidden_dims:
+            fusion_layers.append(nn.Linear(prev, h))
+            fusion_layers.append(self._act())
+            if self.dropout > 0:
+                fusion_layers.append(nn.Dropout(self.dropout))
+            prev = h
+        fusion_layers.append(nn.Linear(prev, int(output_dim)))
+        self.fusion_net = nn.Sequential(*fusion_layers)
+
+    # -------------------------
+    # "Private" helper methods
+    # -------------------------
+    def _as_list(self, x: Any) -> List[Any]:
+        # Works for list/tuple and OmegaConf ListConfig (iterable)
+        return list(x) if x is not None else []
+
+    def _act(self) -> nn.Module:
+        if self.activation == "relu":
+            return nn.ReLU()
+        if self.activation == "tanh":
+            return nn.Tanh()
+        if self.activation == "gelu":
+            return nn.GELU()
+        raise ValueError(f"Unsupported activation: {self.activation}")
+
+    def _make_mlp(self, in_dim: int, hidden_dims: Sequence[int]) -> nn.Sequential:
+        layers: List[nn.Module] = []
+        prev = int(in_dim)
+        for h in self._as_list(hidden_dims):
+            h = int(h)
+            layers.append(nn.Linear(prev, h))
+            layers.append(self._act())
+            if self.dropout > 0:
+                layers.append(nn.Dropout(self.dropout))
+            prev = h
+        return nn.Sequential(*layers)
+
+    def _read_spec(self, s: Any):
+        """
+        Accepts dict / DictConfig / object-with-attributes.
+        Returns (name, in_dim, hidden_dims).
+        """
+        # Dict-like (dict or OmegaConf DictConfig supports __getitem__)
+        if isinstance(s, dict) or hasattr(s, "__getitem__"):
+            try:
+                return s["name"], s["in_dim"], s["hidden_dims"]
+            except Exception:
+                pass
+
+        # Attribute-like
+        return getattr(s, "name"), getattr(s, "in_dim"), getattr(s, "hidden_dims")
+
+    # -------------------------
+    # Forward
+    # -------------------------
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() != 2:
+            raise ValueError(f"x must be 2D (B, D). Got {tuple(x.shape)}")
+        if x.shape[1] != self.total_in_dim:
+            raise ValueError(
+                f"Expected feature dim {self.total_in_dim}, got {x.shape[1]}"
+            )
+
+        embs = []
+        for net, s0, s1 in zip(self.tower_nets, self._starts, self._ends):
+            embs.append(net(x[:, s0:s1]))
+        fused = torch.cat(embs, dim=1)
+        return self.fusion_net(fused)
+
+    def get_slices(self):
+        # Optional debugging helper; remove if you want
+        return [
+            (s["name"], s0, s1, s["in_dim"])
+            for s, s0, s1 in zip(self.tower_specs, self._starts, self._ends)
+        ]
 
 
 class ResNetBlock(nn.Module):
