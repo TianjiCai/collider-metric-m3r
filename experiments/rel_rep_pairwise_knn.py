@@ -27,12 +27,11 @@ class RelRepPairwiseKNN(BaseExperiment):
             aucs = file["test_aucs"]
             self.plot(aucs)
             return
-        test_aucs = np.zeros((8, 8))
-        best_ks = np.zeros((8, 8))
+        test_aucs = np.zeros((self.n_classes, self.n_classes))
+        best_ks = np.zeros((self.n_classes, self.n_classes))
+        class_pairs = self.get_class_pairs()
 
-        for i, j in tqdm(
-            combinations(range(8), 2), total=len(list(combinations(range(8), 2)))
-        ):
+        for i, j in tqdm(class_pairs, total=len(class_pairs)):
             self_matrix_1_file = (
                 self.project_path
                 + f"{self.data_path}{self.metric}/{self.dataset_size}_{self.metric}/{self.metric}_block_{i}_{i}.npy"

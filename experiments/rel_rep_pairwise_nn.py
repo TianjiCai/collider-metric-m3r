@@ -53,12 +53,12 @@ class RelRepPairwiseNN(BaseExperiment):
             aucs = file["test_aucs"]
             self.plot(aucs)
             return
-        test_aucs = np.zeros((8, 8))
+        test_aucs = np.zeros((self.n_classes, self.n_classes))
+        class_pairs = self.get_class_pairs()
 
-        for i, j in tqdm(
-            combinations(range(8), 2), total=len(list(combinations(range(8), 2)))
-        ):
+        for i, j in tqdm(class_pairs, total=len(class_pairs)):
             rel_rep_blocks = []
+            labels = np.repeat([0, 1], self.events_per_class)
             for kin_metric in self.kin_metrics:
                 self_matrix_1_file = (
                     self.project_path
@@ -77,8 +77,6 @@ class RelRepPairwiseNN(BaseExperiment):
                     [self_matrix_1_file, off_diag_matrix_file, self_matrix_2_file]
                 )
 
-                labels = np.repeat([0, 1], self.events_per_class)
-                
                 rel_rep = utils.comparison_utils.relative_rep(
                     big_matrix,
                     labels,
@@ -182,18 +180,15 @@ class RelRepPairwiseNN(BaseExperiment):
 
         im = ax.imshow(plot_data, cmap=cmap, vmin=vmin, vmax=vmax)
 
+        class_names = self.get_class_names()
         ax.set_xticks(range(self.n_classes))
         ax.set_yticks(range(self.n_classes))
-        ax.set_xticklabels(
-            [f"{i + 1}" for i in range(self.n_classes)], rotation=45, ha="right"
-        )
-        ax.set_yticklabels([f"{i + 1}" for i in range(self.n_classes)])
-        if len(self.kin_metrics) >= 3:
-            self.kin_metrics = 'All Kin'
-        if len(self.part_id_metrics) >= 6:
-            self.part_id_metrics = 'All PIDs'
+        ax.set_xticklabels(class_names, rotation=45, ha="right")
+        ax.set_yticklabels(class_names)
+        kin_label = "All Kin" if len(self.kin_metrics) >= 3 else self.kin_metrics
+        pid_label = "All PIDs" if len(self.part_id_metrics) >= 6 else self.part_id_metrics
         ax.set_title(
-            f"MLP AUCs, {self.kin_metrics} {self.part_id_metrics} Rel, {self.anchor_per_class} Anc/Class"
+            f"MLP AUCs, {kin_label} {pid_label} Rel, {self.anchor_per_class} Anc/Class"
         )
 
         cbar = plt.colorbar(im, ax=ax)
@@ -219,27 +214,14 @@ class RelRepPairwiseNN(BaseExperiment):
         )
 
     def compute_part_ids_rel_rep(self, i, j, part_id_metric, seed):
-        class_labels = np.load(self.part_ids_path + "class_labels.npz")
-        class_i = next(k for k, v in class_labels.items() if v == i)
-        class_j = next(k for k, v in class_labels.items() if v == j)
-
-        dataset_size = ""
-        if self.events_per_class == 10000:
-            dataset_size = "10k"
-        elif self.events_per_class == 100000:
-            dataset_size = "100k"
-        elif self.events_per_class == 4000:
-            dataset_size = "4k"
-        elif self.events_per_class == 1000:
-            dataset_size = "1k"
-        else:
-            raise ValueError("Invalid dataset size")
+        class_i = self.get_class_name(i)
+        class_j = self.get_class_name(j)
 
         part_ids_i = np.load(
-            self.part_ids_path + f"{class_i}_part_ids_{dataset_size}.npz"
+            self.part_ids_path + f"{class_i}_part_ids_{self.dataset_size_tag}.npz"
         )[part_id_metric]
         part_ids_j = np.load(
-            self.part_ids_path + f"{class_j}_part_ids_{dataset_size}.npz"
+            self.part_ids_path + f"{class_j}_part_ids_{self.dataset_size_tag}.npz"
         )[part_id_metric]
 
         part_ids_i_sum = np.sum(part_ids_i, axis=1)

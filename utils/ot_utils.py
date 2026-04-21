@@ -695,6 +695,8 @@ def combine_distance_blocks(block_files, dtype="default"):
     if n * (n + 1) // 2 != m:
         raise ValueError(f"Expected n(n+1)/2 blocks, got {m}")
 
+    print("Block files:")
+    print(block_files)
     blocks = [np.load(f) for f in block_files]
 
     # The diagonal blocks tell us how many events belonged to each original

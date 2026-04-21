@@ -53,11 +53,14 @@ class RelRepMulticlassNN(BaseExperiment):
             rel_reps -= col_means
             assert np.allclose(np.mean(rel_reps, axis=0), 0)
 
-        if self.dataset_size == "full":
-            # This line needed to be changed for medium and mini dataset, only works for full dataset now
-            labels = np.repeat(np.arange(self.n_classes), self.events_per_class)[1:]
-        else:
-            labels = np.repeat(np.arange(self.n_classes), self.events_per_class)
+        labels = np.repeat(np.arange(self.n_classes), self.events_per_class)
+        if rel_reps.shape[0] == labels.shape[0] - 1:
+            labels = labels[1:]
+        elif rel_reps.shape[0] != labels.shape[0]:
+            raise ValueError(
+                f"Expected {labels.shape[0]} or {labels.shape[0] - 1} rel-rep rows, "
+                f"got {rel_reps.shape[0]}."
+            )
 
         X_train, X_test, y_train, y_test = train_test_split(
             rel_reps,
@@ -142,16 +145,7 @@ class RelRepMulticlassNN(BaseExperiment):
         plt.savefig(f"{self.exp_dir}/plots/loss_curves.png", dpi=300)
 
     def plot_cm(self, y_preds, y_truth):
-        class_names = [
-            "qcd",
-            "h->bb",
-            "h->cc",
-            "h->gg",
-            "h->4q",
-            "w->qq",
-            "z->qq",
-            "ttbar",
-        ]
+        class_names = self.get_class_names()
         self.log.info("Plotting the confusion matrix...")
         cm = confusion_matrix(y_truth, y_preds, normalize='true')
 

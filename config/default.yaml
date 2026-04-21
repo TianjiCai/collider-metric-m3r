@@ -6,7 +6,7 @@ prev_exp_dir: null
 
 metric: "w2"
 dataset_size: "large"
-n_classes: 8
+n_classes: 10
 
 hydra:
   run:

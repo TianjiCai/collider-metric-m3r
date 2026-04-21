@@ -15,7 +15,7 @@ plot_only: false
 
 metrics:
   - w2
-  - sw
+  # - sw
   - ps
   - part_charge
   - part_isElectron

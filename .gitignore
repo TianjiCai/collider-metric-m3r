@@ -15,9 +15,8 @@ test/
 *p4s.npz
 *.pth
 *gen/
-metric_comparison/
 joint_rep/
-legacy_files/
+scratch_files/
 runs/
 *.sh
 top_tagging/
@@ -25,6 +24,14 @@ top_tagging*
 AGENTS.md
 env.yml
 paper_plots/
+WORKSPACE_SUMMARY.md
+*.npz
+*cache*
+interclass*/
+*.csv
+*test/
+mlp/
+*.json
 
 .DS_Store
 centralFunctions.py

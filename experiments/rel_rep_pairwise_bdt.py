@@ -63,19 +63,21 @@ class RelRepPairwiseBDT(BaseExperiment):
                 roc_thresholds,
             )
             return
-        test_aucs = np.zeros((8, 8))
-        background_rejections = np.full((len(self.target_tprs), 8, 8), np.nan)
-        roc_fprs = np.empty((8, 8), dtype=object)
-        roc_tprs = np.empty((8, 8), dtype=object)
-        roc_thresholds = np.empty((8, 8), dtype=object)
+        test_aucs = np.zeros((self.n_classes, self.n_classes))
+        background_rejections = np.full(
+            (len(self.target_tprs), self.n_classes, self.n_classes), np.nan
+        )
+        roc_fprs = np.empty((self.n_classes, self.n_classes), dtype=object)
+        roc_tprs = np.empty((self.n_classes, self.n_classes), dtype=object)
+        roc_thresholds = np.empty((self.n_classes, self.n_classes), dtype=object)
         roc_fprs[:] = None
         roc_tprs[:] = None
         roc_thresholds[:] = None
+        class_pairs = self.get_class_pairs()
 
-        for i, j in tqdm(
-            combinations(range(8), 2), total=len(list(combinations(range(8), 2)))
-        ):
+        for i, j in tqdm(class_pairs, total=len(class_pairs)):
             rel_rep_blocks = []
+            labels = np.repeat([0, 1], self.events_per_class)
             for kin_metric in self.kin_metrics:
                 self_matrix_1_file = (
                     self.project_path
@@ -93,8 +95,6 @@ class RelRepPairwiseBDT(BaseExperiment):
                 big_matrix = utils.ot_utils.combine_distance_blocks(
                     [self_matrix_1_file, off_diag_matrix_file, self_matrix_2_file]
                 )
-
-                labels = np.repeat([0, 1], self.events_per_class)
 
                 rel_rep = utils.comparison_utils.relative_rep(
                     big_matrix,
@@ -181,17 +181,10 @@ class RelRepPairwiseBDT(BaseExperiment):
         return percent_label, file_tag
 
     def get_class_names(self):
-        try:
-            class_labels = np.load(self.part_ids_path + "class_labels.npz")
-            label_map = {
-                int(np.asarray(value).item()): key for key, value in class_labels.items()
-            }
-            return [label_map.get(i, f"{i + 1}") for i in range(self.n_classes)]
-        except (FileNotFoundError, ValueError, OSError):
-            return [f"{i + 1}" for i in range(self.n_classes)]
+        return super().get_class_names()
 
     def plot_pairwise_curve_grid(self, roc_fprs, roc_tprs, curve_kind, kin_label, pid_label):
-        pairs = list(combinations(range(self.n_classes), 2))
+        pairs = self.get_class_pairs()
         class_names = self.get_class_names()
         n_cols = 4
         n_rows = int(np.ceil(len(pairs) / n_cols))
@@ -293,12 +286,11 @@ class RelRepPairwiseBDT(BaseExperiment):
 
         im = ax.imshow(plot_data, cmap=cmap, vmin=vmin, vmax=vmax)
 
+        class_names = self.get_class_names()
         ax.set_xticks(range(self.n_classes))
         ax.set_yticks(range(self.n_classes))
-        ax.set_xticklabels(
-            [f"{i + 1}" for i in range(self.n_classes)], rotation=45, ha="right"
-        )
-        ax.set_yticklabels([f"{i + 1}" for i in range(self.n_classes)])
+        ax.set_xticklabels(class_names, rotation=45, ha="right")
+        ax.set_yticklabels(class_names)
         ax.set_title(
             f"BDT AUCs, {kin_label} {pid_label} Rel, {self.anchor_per_class} Anc/Class"
         )
@@ -362,10 +354,8 @@ class RelRepPairwiseBDT(BaseExperiment):
 
                 ax.set_xticks(range(self.n_classes))
                 ax.set_yticks(range(self.n_classes))
-                ax.set_xticklabels(
-                    [f"{i + 1}" for i in range(self.n_classes)], rotation=45, ha="right"
-                )
-                ax.set_yticklabels([f"{i + 1}" for i in range(self.n_classes)])
+                ax.set_xticklabels(class_names, rotation=45, ha="right")
+                ax.set_yticklabels(class_names)
                 ax.set_title(
                     "BDT Background Rejection @ "
                     f"{percent_label}% TPR, "
@@ -411,27 +401,14 @@ class RelRepPairwiseBDT(BaseExperiment):
         self.plot_pairwise_curve_grid(roc_fprs, roc_tprs, "sic", kin_label, pid_label)
 
     def compute_part_ids_rel_rep(self, i, j, part_id_metric, seed):
-        class_labels = np.load(self.part_ids_path + "class_labels.npz")
-        class_i = next(k for k, v in class_labels.items() if v == i)
-        class_j = next(k for k, v in class_labels.items() if v == j)
-
-        dataset_size = ""
-        if self.events_per_class == 10000:
-            dataset_size = "10k"
-        elif self.events_per_class == 100000:
-            dataset_size = "100k"
-        elif self.events_per_class == 4000:
-            dataset_size = "4k"
-        elif self.events_per_class == 1000:
-            dataset_size = "1k"
-        else:
-            raise ValueError("Invalid dataset size")
+        class_i = self.get_class_name(i)
+        class_j = self.get_class_name(j)
 
         part_ids_i = np.load(
-            self.part_ids_path + f"{class_i}_part_ids_{dataset_size}.npz"
+            self.part_ids_path + f"{class_i}_part_ids_{self.dataset_size_tag}.npz"
         )[part_id_metric]
         part_ids_j = np.load(
-            self.part_ids_path + f"{class_j}_part_ids_{dataset_size}.npz"
+            self.part_ids_path + f"{class_j}_part_ids_{self.dataset_size_tag}.npz"
         )[part_id_metric]
 
         part_ids_i_sum = np.sum(part_ids_i, axis=1)
@@ -455,4 +432,4 @@ class RelRepPairwiseBDT(BaseExperiment):
 
         diff = big[:, None] - anchors[None, :]
 
-        return diff
+        return np.abs(diff)

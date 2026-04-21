@@ -415,6 +415,7 @@ def knn_with_precomputed(
     val_auc_list = []
     for k in k_list:
         # Crucial: Set metric to 'precomputed'
+        # sklearn 
         model = KNeighborsClassifier(n_neighbors=k, metric="precomputed", n_jobs=-1)
         model.fit(X_train, y_train)
 

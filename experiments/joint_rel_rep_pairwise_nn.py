@@ -49,11 +49,10 @@ class JointRelRepPairwiseNN(BaseExperiment):
             aucs = file["test_aucs"]
             self.plot(aucs)
             return
-        test_aucs = np.zeros((8, 8))
+        test_aucs = np.zeros((self.n_classes, self.n_classes))
+        class_pairs = self.get_class_pairs()
 
-        for i, j in tqdm(
-            combinations(range(8), 2), total=len(list(combinations(range(8), 2)))
-        ):
+        for i, j in tqdm(class_pairs, total=len(class_pairs)):
             self_matrix_1_file = (
                 self.project_path
                 + f"{self.data_path}{self.metric_1}/{self.dataset_size}_{self.metric_1}/{self.metric_1}_block_{i}_{i}.npy"
@@ -193,12 +192,11 @@ class JointRelRepPairwiseNN(BaseExperiment):
 
         im = ax.imshow(plot_data, cmap=cmap, vmin=vmin, vmax=vmax)
 
+        class_names = self.get_class_names()
         ax.set_xticks(range(self.n_classes))
         ax.set_yticks(range(self.n_classes))
-        ax.set_xticklabels(
-            [f"{i + 1}" for i in range(self.n_classes)], rotation=45, ha="right"
-        )
-        ax.set_yticklabels([f"{i + 1}" for i in range(self.n_classes)])
+        ax.set_xticklabels(class_names, rotation=45, ha="right")
+        ax.set_yticklabels(class_names)
         ax.set_title(
             f"Pairwise MLP AUCs, {self.metric_1}+{self.metric_2} Relative Space, {2 * self.anchor_per_class} Anchors"
         )
@@ -226,39 +224,22 @@ class JointRelRepPairwiseNN(BaseExperiment):
         )
     
     def compute_part_ids_rel_rep(self, i, j, seed):
-        class_labels = np.load(self.part_ids_path + "class_labels.npz")
-        class_i = next(k for k, v in class_labels.items() if v == i)
-        class_j = next(k for k, v in class_labels.items() if v == j)
+        class_i = self.get_class_name(i)
+        class_j = self.get_class_name(j)
 
-        dataset_size = ""
-        if self.events_per_class == 10000:
-            dataset_size = "10k"
-        elif self.events_per_class == 100000:
-            dataset_size = "100k"
-        elif self.events_per_class == 4000:
-            dataset_size = "4k"
-        elif self.events_per_class == 1000:
-            dataset_size = "1k"
-        else:
-            raise ValueError("Invalid dataset size")
-
-        # shape = (dataset_size, 150, 6)
         part_ids_i = np.load(
-            self.part_ids_path + f"{class_i}_part_ids_{dataset_size}.npy"
+            self.part_ids_path + f"{class_i}_part_ids_{self.dataset_size_tag}.npz"
         )
-        # print("Shape of part_ids_i:", part_ids_i.shape)
         part_ids_j = np.load(
-            self.part_ids_path + f"{class_j}_part_ids_{dataset_size}.npy"
+            self.part_ids_path + f"{class_j}_part_ids_{self.dataset_size_tag}.npz"
         )
-        # print("Shape of part_ids_j:", part_ids_j.shape)
-        # self.log.info("Shape of part_ids_i:", part_ids_i.shape)
-        # self.log.info("Shape of part_ids_j:", part_ids_j.shape)
 
-        # shape (dataset_size, 6)
-        part_ids_i_sum = np.sum(part_ids_i, axis=1)
-        part_ids_j_sum = np.sum(part_ids_j, axis=1)
-        # self.log.info("Shape of part_ids_i_sum:", part_ids_i_sum.shape)
-        # self.log.info("Shape of part_ids_j_sum:", part_ids_j_sum.shape)
+        part_ids_i_sum = np.sum(
+            np.stack([part_ids_i[key] for key in part_ids_i.files], axis=-1), axis=1
+        )
+        part_ids_j_sum = np.sum(
+            np.stack([part_ids_j[key] for key in part_ids_j.files], axis=-1), axis=1
+        )
 
         np.random.seed(seed)
         labels = np.repeat([0, 1], self.events_per_class)
