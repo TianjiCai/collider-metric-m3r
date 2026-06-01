@@ -32,6 +32,7 @@ interclass*/
 *test/
 mlp/
 *.json
+conclusions.md
 
 .DS_Store
 centralFunctions.py
