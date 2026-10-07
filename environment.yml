@@ -1,0 +1,20 @@
+# Conda environment for the paper pipeline (Tiers 1-2). Add `pip install -e ".[gen,sw]"`
+# for Tier 3 data generation and `".[nn]"` for the neural-network experiments.
+name: m3r
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy=2.2
+  - scipy=1.14
+  - scikit-learn=1.5.2
+  - matplotlib=3.11
+  - pot=0.9.4
+  - pyyaml
+  - tqdm
+  - pip
+  - pip:
+      - mplhep>=1.3
+      - hydra-core>=1.3
+      - omegaconf>=2.3
+      - -e .

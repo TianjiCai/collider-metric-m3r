@@ -1,0 +1,196 @@
+# Single source of truth for every number used in the paper
+# "A Unified Geometric Framework for Understanding Collider Event Manifolds".
+# Scripts under paper/ and experiments/ read this file through m3r.config.load_config().
+# Per-machine overrides (data location, thread counts) go in configs/local.yaml (git-ignored).
+
+schema: 1
+
+paths:
+  data: data
+  jetclass: data/jetclass          # raw JetClass ROOT files + QCD parquet (Tier 3 only)
+  jets: data/jets                  # {Class}_10k.npz and {Class}_part_ids_10k.npz
+  ps_inputs: data/ps_inputs        # {Class}_ps_10k.npz (10 kt subjets, collinear frame)
+  blocks: data/blocks              # {metric}/{metric}_block_{i}_{j}.npy
+  manifests: data/manifests
+  results: results
+  figures: figures
+
+# File-name patterns; override `block` in configs/local.yaml to point at a legacy layout.
+patterns:
+  jets: "{jets}/{cls}_10k.npz"
+  part_ids: "{jets}/{cls}_part_ids_10k.npz"
+  ps_inputs: "{ps_inputs}/{cls}_ps_10k.npz"
+  block: "{blocks}/{metric}/{metric}_block_{i}_{j}.npy"
+
+dataset:
+  name: jetclass_large_10k
+  events_per_class: 10000
+  max_constituents: 150
+  class_order: [QCD, HToBB, HToCC, HToGG, HToWW4Q, ZToQQ, WToQQ, TTBar, HToWW2Q1L, TTBarLep]
+  pid_features: [part_charge, part_isElectron, part_isMuon, part_isPhoton, part_isChargedHadron, part_isNeutralHadron]
+  source:
+    shard: 120                      # JetClass train file {Class}_120.root
+    qcd_parquet: train_file_0.parquet
+    root_pattern: "{cls}_{shard}.root"
+  selection:
+    # Classes 0-7 share one failed-index file (jets whose 20-subjet kt reclustering failed in
+    # the original 8-class study); classes 8-9 use per-class files with the 20-constituent cut.
+    legacy_shared_failed_index: data/manifests/selection/shared_failed_index_8class.npy
+    legacy_shared_classes: [QCD, HToBB, HToCC, HToGG, HToWW4Q, ZToQQ, WToQQ, TTBar]
+    per_class_failed_index: "data/manifests/selection/{cls}_failed_index.npy"
+    explicit_rows: "data/manifests/selection/{cls}_rows.npy"   # takes precedence when present (QCD)
+    min_constituents_new_classes: 20
+  ps_inputs:
+    n_subjets: 10
+    radius: 0.8
+    algorithm: kt
+
+metrics:
+  kinematic: [w2, sw, ps]
+  # M3R coordinates are distances; the published SW2 blocks store squared distances and are
+  # converted by m3r.blocks.BlockStore. Set false to reproduce the pre-refactor SW2 numbers.
+  sw_as_distance: true
+  w2: {events_per_thread: 20}
+  sw: {batch_size: 4096, force_cpu: true}
+  ps: {events_per_process: 8192, sphere2simplex: 1.0, l_has_chi: true}
+
+display:
+  metric_labels: {w2: "$\\mathrm{W}_2$", sw: "$\\mathrm{SW}_2$", ps: "$\\mathrm{PS}$"}
+  metric_panel_order: [ps, sw, w2]
+
+# The six binary tagging tasks (canonical class indices, i < j), in figure order.
+tasks:
+  - {slug: qcd_vs_ttbar,   classes: [0, 7]}
+  - {slug: qcd_vs_hww2q1l, classes: [0, 8]}
+  - {slug: hcc_vs_hgg,     classes: [2, 3]}
+  - {slug: hbb_vs_hww4q,   classes: [1, 4]}
+  - {slug: hbb_vs_hww2q1l, classes: [1, 8]}
+  - {slug: wqq_vs_zqq,     classes: [5, 6]}
+
+seeds:
+  anchors: 42        # reference-event sampling (all sections)
+  split: 42          # train/validation/test splits
+  mado_base: 42      # MADO: class_seed = mado_base + class_index
+  bootstrap: 0       # PCA bootstrap
+  bdt: 42            # HistGradientBoosting random_state and split
+
+# ---- Section 2: Fig. 1 ---------------------------------------------------------------------
+fig1:
+  jets: [5862, 2168]   # indices into data/jets/QCD_10k.npz
+  num_iter_max: 100000
+
+# ---- Section 4.1: Fig. 3 (JAUC and MADO vs N_ref) ------------------------------------------
+intraclass:
+  classes: [QCD, HToBB, HToCC, HToGG, HToWW4Q, ZToQQ, WToQQ, TTBar]
+  representative_classes: [QCD, HToBB, WToQQ, ZToQQ, TTBar, HToWW4Q]
+  anchors: [1, 2, 5, 8, 10, 15, 20, 30, 40, 50, 100]
+  asymptotic_anchor: 100
+  jauc:
+    neighbors_step: 100
+    rank_chunk_size: 1024
+  mado:
+    sample_pairs: 20000
+    sample_references: 128
+    pair_chunk_size: 4096
+    ref_chunk_size: 128
+
+# ---- Section 4.2: Figs. 4-5 (PCA alignment, PC1 variance transfer) -------------------------
+structure:
+  classes: [QCD, WToQQ, TTBar]
+  anchors: 20
+  n_alignment_pcs: 5
+  bootstrap: 200
+
+# ---- Section 5.1: Fig. 6 (SVM AUC vs N_ref, relative space; "Abs" baseline) ----------------
+svm_relrep:
+  anchors_per_class: [1, 2, 5, 10, 15, 20, 30, 50]   # N_ref = 2 * anchors_per_class
+  svc: {kernel: rbf, C: 1.0, gamma: scale}
+  train_fraction: 0.8                                # unstratified permutation split
+svm_abs:
+  test_fraction: 0.2
+  validation_fraction: 0.2                           # of train+val -> 64 / 16 / 20
+  gamma_grid: [0.01, 0.1, 1.0, 10.0]
+  C_grid: {w2: [1, 10, 100], sw: [1, 10, 100], ps: [0.1, 1, 10, 100]}
+  normalization: median_upper_triangle_stored        # kernel on stored block values
+
+# ---- Section 5.2: Fig. 7 (support-vector fractions, relative space) ------------------------
+svm_sv:
+  anchors_per_class: 10                              # N_ref = 20 as in the caption
+  test_fraction: 0.2
+  validation_fraction: 0.2
+  rel: {gamma: scale, C: 10.0}
+  abs: {gamma_grid: [0.01, 0.1, 1.0, 10.0], C_grid: [1, 10, 100]}
+  # Pre-refactor run (reproduces the earlier figure): anchors_per_class 20 and, for W2,
+  # C selected on the validation split from [0.1, 1, 10, 100].
+  legacy: {anchors_per_class: 20, C_grid: {w2: [0.1, 1, 10, 100], sw: [10], ps: [10]}}
+
+# ---- Section 6: Fig. 8 and Table 1 (BDT feature progression) -------------------------------
+bdt:
+  anchors_per_class: 20
+  test_size: 0.2                                     # stratified; HGB validation_fraction 0.1 -> 72/8/20
+  params:
+    learning_rate: 0.05
+    max_iter: 2000
+    max_leaf_nodes: 31
+    min_samples_leaf: 50
+    l2_regularization: 1.0
+    max_bins: 255
+    early_stopping: true
+    validation_fraction: 0.1
+    n_iter_no_change: 20
+    random_state: 42
+  target_tprs: [0.3, 0.5, 0.995]
+  # Feature sets are unordered; columns are ordered PS, SW2, W2 then PID (as in the published runs),
+  # and "pid" stands for the six particle-content features.
+  feature_sets:
+    ps:            [ps]
+    ps+sw:         [ps, sw]
+    ps+sw+w2:      [ps, sw, w2]
+    ps+sw+w2+pid:  [ps, sw, w2, pid]
+    ps+w2:         [ps, w2]
+    ps+pid:        [ps, pid]
+    ps+sw+pid:     [ps, sw, pid]
+    sw:            [sw]
+    sw+w2:         [sw, w2]
+  progressions:
+    a: {title: "PS -> SW2 -> W2 -> PID", stages: [ps, ps+sw, ps+sw+w2, ps+sw+w2+pid]}
+    b: {title: "PS -> W2 -> SW2 -> PID", stages: [ps, ps+w2, ps+sw+w2, ps+sw+w2+pid]}
+    c: {title: "PS -> PID -> SW2 -> W2", stages: [ps, ps+pid, ps+sw+pid, ps+sw+w2+pid]}
+    d: {title: "SW2 -> W2 -> PS -> PID", stages: [sw, sw+w2, ps+sw+w2, ps+sw+w2+pid]}
+  figure_progression: a
+  table_progressions: [a, d]
+  table_bold_threshold: 0.05
+  table_underline_threshold: 0.10
+
+# ---- Optional robustness check (footnote in Sec. 6): multi-tower MLP -----------------------
+extras:
+  mlp:
+    anchors_per_class: 20
+    network: multi_tower
+    training: {epochs: 1000, batch_size: 512, learning_rate: 1.0e-4, weight_decay: 1.0e-4, val_size: 0.2}
+
+# ---- Deterministic result and figure locations --------------------------------------------
+results:
+  fig1_transport:          results/paper/sec2/qcd_transport_data.npz
+  intraclass_jauc:         results/paper/sec4/jauc_{metric}.csv
+  intraclass_mado:         results/paper/sec4/mado_{metric}.csv
+  pca_alignment:           results/paper/sec4/pca_alignment.csv
+  ev_transfer:             results/paper/sec4/ev_transfer.csv
+  pca_spectra:             results/paper/sec4/pca_spectra.csv
+  pca_alignment_bootstrap: results/paper/sec4/pca_alignment_bootstrap.csv
+  svm_relrep_sweep:        results/paper/sec5/relrep_sweep_{metric}.npz
+  svm_abs_baseline:        results/paper/sec5/abs_baseline_{metric}.npz
+  svm_sv_study:            results/paper/sec5/sv_study_{metric}.npz
+  bdt_feature_progression: results/paper/sec6/feature_progression.npz
+  experiments:             results/experiments
+
+figures:
+  fig1: [w2_plan.pdf, sw2_plan.pdf]
+  fig2: m3r_geometry.pdf
+  fig3: [jm_raw_rep.pdf, jm_ratio_rep.pdf]
+  fig4: pca_alignment.pdf
+  fig5: ev_transfer.pdf
+  fig6: svm_curves_all.pdf
+  fig7: sv_fractions_rel.pdf
+  fig8: unified_repr.pdf
+  table1: table1_feature_progression.tex

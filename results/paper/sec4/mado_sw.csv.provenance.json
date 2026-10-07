@@ -1,0 +1,37 @@
+{
+  "anchors": [
+    1,
+    2,
+    5,
+    8,
+    10,
+    15,
+    20,
+    30,
+    40,
+    50,
+    100
+  ],
+  "classes": [
+    "QCD",
+    "HToBB",
+    "HToCC",
+    "HToGG",
+    "HToWW4Q",
+    "ZToQQ",
+    "WToQQ",
+    "TTBar"
+  ],
+  "config_hash": "5ee3a7f8aea8",
+  "git_sha": "ccf4390",
+  "metric": "sw",
+  "result": "mado_sw.csv",
+  "stage": "paper/sec4_single_manifold/run_intraclass.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}

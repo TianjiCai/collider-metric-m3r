@@ -1,0 +1,33 @@
+_target_: m3r.nn.MultiTowerMLP
+activation: relu
+dropout: 0.0
+output_dim: ???
+tower_specs:
+  - name: w2
+    in_dim: ???
+    hidden_dims: [256, 128]
+  # - name: sw
+  #   in_dim: ???
+  #   hidden_dims: [128, 64]
+  # - name: ps
+  #   in_dim: ???
+  #   hidden_dims: [128, 64]
+  - name: part_charge
+    in_dim: ???
+    hidden_dims: [64, 32]
+  - name: part_isElectron
+    in_dim: ???
+    hidden_dims: [64, 32]
+  - name: part_isMuon
+    in_dim: ???
+    hidden_dims: [64, 32]
+  - name: part_isPhoton
+    in_dim: ???
+    hidden_dims: [64, 32]
+  - name: part_isChargedHadron
+    in_dim: ???
+    hidden_dims: [64, 32]
+  - name: part_isNeutralHadron
+    in_dim: ???
+    hidden_dims: [64, 32]
+fusion_hidden_dims: [256, 128]

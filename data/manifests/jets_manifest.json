@@ -1,0 +1,139 @@
+{
+  "class_order": [
+    "QCD",
+    "HToBB",
+    "HToCC",
+    "HToGG",
+    "HToWW4Q",
+    "ZToQQ",
+    "WToQQ",
+    "TTBar",
+    "HToWW2Q1L",
+    "TTBarLep"
+  ],
+  "classes": {
+    "HToBB": {
+      "failed_index_file": "data/manifests/selection/shared_failed_index_8class.npy",
+      "jets_digest": "4d52cf3126376615161df34027a46a865a31c0dcf585e1b4e816c8b4337b2226",
+      "jets_file": "HToBB_10k.npz",
+      "label": 1,
+      "n_failed": 21020,
+      "part_ids_digest": "5c79be6e71d370193fbfdc3f28a1f5b7181e0d926b49c91ce814439d036e5ea7",
+      "part_ids_file": "HToBB_part_ids_10k.npz",
+      "rows_first": 2,
+      "rows_last": 12413,
+      "source": "data/jetclass/HToBB_120.root"
+    },
+    "HToCC": {
+      "failed_index_file": "data/manifests/selection/shared_failed_index_8class.npy",
+      "jets_digest": "bd2bc8490b11690e458a973102909c20f6c2827fb281509be43274a28bdf89ee",
+      "jets_file": "HToCC_10k.npz",
+      "label": 2,
+      "n_failed": 21020,
+      "part_ids_digest": "cb966a5b3cf3748d275cf97143406e0a273e6e150a4df4cf38fbef2ccbe7246f",
+      "part_ids_file": "HToCC_part_ids_10k.npz",
+      "rows_first": 2,
+      "rows_last": 12413,
+      "source": "data/jetclass/HToCC_120.root"
+    },
+    "HToGG": {
+      "failed_index_file": "data/manifests/selection/shared_failed_index_8class.npy",
+      "jets_digest": "e7163bdc99d04d283e7f38a736890a2280e2d2d5162b55cc1e58cbcf65e3652a",
+      "jets_file": "HToGG_10k.npz",
+      "label": 3,
+      "n_failed": 21020,
+      "part_ids_digest": "35d9a2752bcb1595275b73ebd5d69072f7ef4cdc256829e4d4c75a23f3f38dbf",
+      "part_ids_file": "HToGG_part_ids_10k.npz",
+      "rows_first": 2,
+      "rows_last": 12413,
+      "source": "data/jetclass/HToGG_120.root"
+    },
+    "HToWW2Q1L": {
+      "failed_index_file": "data/manifests/selection/HToWW2Q1L_failed_index.npy",
+      "jets_digest": "8104446509f21cc1cca2ae6533c5d898f8bdba53c1ee02a361feb2727157a4e1",
+      "jets_file": "HToWW2Q1L_10k.npz",
+      "label": 8,
+      "n_failed": 18505,
+      "part_ids_digest": "822f3d03318eeed76786e334ef137e6a01666bc76437eeb1f0593cadaa6ea4e6",
+      "part_ids_file": "HToWW2Q1L_part_ids_10k.npz",
+      "rows_first": 1,
+      "rows_last": 12294,
+      "source": "data/jetclass/HToWW2Q1L_120.root"
+    },
+    "HToWW4Q": {
+      "failed_index_file": "data/manifests/selection/shared_failed_index_8class.npy",
+      "jets_digest": "f34edbd390d85cb79a7003614bb81d6cf5c0d973c64a2ff5b4b15c9c49c7db19",
+      "jets_file": "HToWW4Q_10k.npz",
+      "label": 4,
+      "n_failed": 21020,
+      "part_ids_digest": "fabb5cbec84cfcc96ca280181674b83fd19f12910cfd202e8e08ce1bf60e51f2",
+      "part_ids_file": "HToWW4Q_part_ids_10k.npz",
+      "rows_first": 2,
+      "rows_last": 12413,
+      "source": "data/jetclass/HToWW4Q_120.root"
+    },
+    "QCD": {
+      "failed_index_file": "data/manifests/selection/QCD_rows.npy",
+      "jets_digest": "7a88c68968979e3091f892da37202b9bc37acd3e43501e5a7cc6434568c0621e",
+      "jets_file": "QCD_10k.npz",
+      "label": 0,
+      "n_failed": 13,
+      "part_ids_digest": "77111b7247c694e1ed347fb160786cb053cd11d550d789bec5d8cdb4d50cc5e5",
+      "part_ids_file": "QCD_part_ids_10k.npz",
+      "rows_first": 0,
+      "rows_last": 10012,
+      "source": "data/jetclass/train_file_0.parquet"
+    },
+    "TTBar": {
+      "failed_index_file": "data/manifests/selection/shared_failed_index_8class.npy",
+      "jets_digest": "5156bb2a98235bfd4fdd43c7bd11987d4ac007aa11a85abcc0085d3858477f38",
+      "jets_file": "TTBar_10k.npz",
+      "label": 7,
+      "n_failed": 21020,
+      "part_ids_digest": "4ecd39ac620285bfa381d389d3b43ad536a5e96b4fe85530f0f7d7bd1886103e",
+      "part_ids_file": "TTBar_part_ids_10k.npz",
+      "rows_first": 2,
+      "rows_last": 12413,
+      "source": "data/jetclass/TTBar_120.root"
+    },
+    "TTBarLep": {
+      "failed_index_file": "data/manifests/selection/TTBarLep_failed_index.npy",
+      "jets_digest": "5d6d0ef2653f93e6929ea88fdda34dbec7bcda9c23fad02a19319cf3f95d230d",
+      "jets_file": "TTBarLep_10k.npz",
+      "label": 9,
+      "n_failed": 25382,
+      "part_ids_digest": "9b201fecbd37d547220cf0094af8570342c67d460f3f2025e29c60a581e90174",
+      "part_ids_file": "TTBarLep_part_ids_10k.npz",
+      "rows_first": 1,
+      "rows_last": 13383,
+      "source": "data/jetclass/TTBarLep_120.root"
+    },
+    "WToQQ": {
+      "failed_index_file": "data/manifests/selection/shared_failed_index_8class.npy",
+      "jets_digest": "fb4f479ba108295a3d6f710eef914b94535fc287ebb15b27d55572545b33b97e",
+      "jets_file": "WToQQ_10k.npz",
+      "label": 6,
+      "n_failed": 21020,
+      "part_ids_digest": "84cc35a7211d58bd489c2b6c1c570d875816717a570fe891fff5cea479071dc4",
+      "part_ids_file": "WToQQ_part_ids_10k.npz",
+      "rows_first": 2,
+      "rows_last": 12413,
+      "source": "data/jetclass/WToQQ_120.root"
+    },
+    "ZToQQ": {
+      "failed_index_file": "data/manifests/selection/shared_failed_index_8class.npy",
+      "jets_digest": "1db5c02451c56cbd324ead8ced0dc4e0773acbd357a416735024cc2ab4ee9632",
+      "jets_file": "ZToQQ_10k.npz",
+      "label": 5,
+      "n_failed": 21020,
+      "part_ids_digest": "c1e59bcc2cc1c919b6872e306f471de223aea91cf59977fc8bfc276481887dd2",
+      "part_ids_file": "ZToQQ_part_ids_10k.npz",
+      "rows_first": 2,
+      "rows_last": 12413,
+      "source": "data/jetclass/ZToQQ_120.root"
+    }
+  },
+  "digest": "sha256 over sorted array names, dtypes, shapes and bytes of each .npz",
+  "events_per_class": 10000,
+  "schema": 1
+}

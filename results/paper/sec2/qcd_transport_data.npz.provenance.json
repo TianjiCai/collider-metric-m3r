@@ -1,0 +1,17 @@
+{
+  "config_hash": "9fcbce2fb097",
+  "git_sha": "c57edd5",
+  "jets": [
+    5862,
+    2168
+  ],
+  "result": "qcd_transport_data.npz",
+  "stage": "paper/sec2_metrics/fig1_transport_plans.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}

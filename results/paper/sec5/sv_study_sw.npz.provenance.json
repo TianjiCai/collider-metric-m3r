@@ -1,0 +1,14 @@
+{
+  "config_hash": "5ee3a7f8aea8",
+  "git_sha": "ccf4390",
+  "result": "sv_study_sw.npz",
+  "source": "results/experiments/rel_rep_pairwise_svm/study/sw/a10/results/svm_rel_rep_large_sw_10.npz",
+  "stage": "paper/sec5_decision_boundary/collect_svm.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}

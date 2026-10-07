@@ -1,0 +1,21 @@
+{
+  "anchors": 20,
+  "bootstrap": 200,
+  "classes": [
+    "QCD",
+    "WToQQ",
+    "TTBar"
+  ],
+  "config_hash": "d3bc96b5fbff",
+  "dtype": "float64",
+  "git_sha": "ccf4390",
+  "result": "pca_spectra.csv",
+  "stage": "paper/sec4_single_manifold/run_pca_structure.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}

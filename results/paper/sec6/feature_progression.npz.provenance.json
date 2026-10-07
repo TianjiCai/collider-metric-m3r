@@ -1,0 +1,24 @@
+{
+  "config_hash": "e9157b34d12b",
+  "git_sha": "ccf4390",
+  "result": "feature_progression.npz",
+  "sources": {
+    "ps": "results/experiments/rel_rep_pairwise_bdt/ps/a20/results/bdt_rel_rep_large_20.npz",
+    "ps+pid": "results/experiments/rel_rep_pairwise_bdt/ps+pid/a20/results/bdt_rel_rep_large_20.npz",
+    "ps+sw": "results/experiments/rel_rep_pairwise_bdt/ps+sw/a20/results/bdt_rel_rep_large_20.npz",
+    "ps+sw+pid": "results/experiments/rel_rep_pairwise_bdt/ps+sw+pid/a20/results/bdt_rel_rep_large_20.npz",
+    "ps+sw+w2": "results/experiments/rel_rep_pairwise_bdt/ps+sw+w2/a20/results/bdt_rel_rep_large_20.npz",
+    "ps+sw+w2+pid": "results/experiments/rel_rep_pairwise_bdt/ps+sw+w2+pid/a20/results/bdt_rel_rep_large_20.npz",
+    "ps+w2": "results/experiments/rel_rep_pairwise_bdt/ps+w2/a20/results/bdt_rel_rep_large_20.npz",
+    "sw": "results/experiments/rel_rep_pairwise_bdt/sw/a20/results/bdt_rel_rep_large_20.npz",
+    "sw+w2": "results/experiments/rel_rep_pairwise_bdt/sw+w2/a20/results/bdt_rel_rep_large_20.npz"
+  },
+  "stage": "paper/sec6_unified/collect_bdt.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}

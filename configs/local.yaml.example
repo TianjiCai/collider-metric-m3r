@@ -1,0 +1,5 @@
+# Copy to configs/local.yaml for machine-specific overrides (git-ignored). Example: blocks on external storage
+# paths:
+#   blocks: /Volumes/external/m3r/blocks
+# patterns:
+#   block: "{blocks}/{metric}/{metric}_block_{i}_{j}.npy"

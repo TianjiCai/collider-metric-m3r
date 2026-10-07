@@ -1,0 +1,18 @@
+{
+  "dataset": "data/jets/QCD_10k.npz",
+  "dataset_sha256": "5db425806eadf19f90a5944bbdf7e9edda68ce76480e7159f0ea47a8510c4228",
+  "jet_indices_zero_based": [
+    5862,
+    2168
+  ],
+  "constituent_counts": [
+    85,
+    67
+  ],
+  "W2": 0.13321512324185586,
+  "SW2": 0.1257381434503311,
+  "spectral_bins": 64,
+  "spectral_axis_limit": 0.748374843151767,
+  "spectral_support_connected_components_8_neighbor": 1,
+  "spectral_support_connected_components_4_neighbor": 1
+}

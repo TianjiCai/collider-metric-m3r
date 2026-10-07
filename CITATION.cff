@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper."
+title: "collider-metric-comparison: multi-reference relative representations of collider event metrics"
+authors:
+  - family-names: Cai
+    given-names: Tianji
+  - family-names: Li
+    given-names: Hancheng
+repository-code: "https://github.com/TianjiCai/collider-metric-comparison"
+license: MIT
+preferred-citation:
+  type: article
+  title: "A Unified Geometric Framework for Understanding Collider Event Manifolds"
+  authors:
+    - family-names: Cai
+      given-names: Tianji
+    - family-names: Li
+      given-names: Hancheng
+  year: 2026

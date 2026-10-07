@@ -1,0 +1,20 @@
+run_name: abs_pairwise_svm
+experiment: AbsPairwiseSVM
+
+defaults:
+  - default
+  - _self_
+
+seed: 42
+plot_only: false
+test_fraction: 0.2
+validation_fraction: 0.2
+save_margins: false
+
+svm:
+  gamma_grid: [0.01, 0.1, 1, 10]
+  default_C_grid: [1, 10, 100]
+  C_grid_by_metric:
+    w2: [1, 10, 100]
+    sw: [1, 10, 100]
+    ps: [0.1, 1, 10, 100]

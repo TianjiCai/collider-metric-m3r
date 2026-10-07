@@ -1,0 +1,23 @@
+{
+  "config_hash": "5ee3a7f8aea8",
+  "git_sha": "ccf4390",
+  "result": "relrep_sweep_sw.npz",
+  "sources": {
+    "1": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a1/results/svm_rel_rep_large_sw_1.npz",
+    "10": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a10/results/svm_rel_rep_large_sw_10.npz",
+    "15": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a15/results/svm_rel_rep_large_sw_15.npz",
+    "2": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a2/results/svm_rel_rep_large_sw_2.npz",
+    "20": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a20/results/svm_rel_rep_large_sw_20.npz",
+    "30": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a30/results/svm_rel_rep_large_sw_30.npz",
+    "5": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a5/results/svm_rel_rep_large_sw_5.npz",
+    "50": "results/experiments/rel_rep_pairwise_svm/fixed/sw/a50/results/svm_rel_rep_large_sw_50.npz"
+  },
+  "stage": "paper/sec5_decision_boundary/collect_svm.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}

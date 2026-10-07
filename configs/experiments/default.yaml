@@ -1,0 +1,27 @@
+# Shared defaults for every Hydra experiment. Paper-wide settings (data layout, tasks,
+# feature sets, hyperparameters) are read from configs/paper.yaml via m3r.config.
+defaults:
+  - _self_
+
+prev_exp_dir: null          # set to a previous output dir to re-run / re-plot in place
+paper_config: null          # path to paper.yaml (null = configs/paper.yaml)
+
+metric: w2
+dataset_size: large
+n_classes: 10
+tasks: all                  # paper | all | one or more task slugs / "A,B" class pairs
+
+hydra:
+  run:
+    dir: results/experiments/${run_name}/${metric}
+  sweep:
+    dir: results/experiments/${run_name}
+    subdir: ${metric}
+  job:
+    chdir: false
+  job_logging:
+    disable_existing_loggers: false
+    formatters:
+      simple:
+        format: "[%(levelname)-1.1s] %(message)s"
+        datefmt: "%H:%M:%S"

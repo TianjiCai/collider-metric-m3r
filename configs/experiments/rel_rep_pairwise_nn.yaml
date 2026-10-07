@@ -1,0 +1,26 @@
+# Pairwise multi-tower MLP (robustness check of Sec. 6). One tower per entry of network.tower_specs.
+run_name: rel_rep_pairwise_nn
+experiment: RelRepPairwiseNN
+
+defaults:
+  - default
+  - nn
+  - override /network: multi_tower
+  - _self_
+
+anchor_per_class: 20
+seed: 42
+plot_only: false
+
+# Either list the features here (one tower each; "pid" = the six PID features) ...
+features: null              # e.g. [ps, sw, w2, pid]
+kin_hidden_dims: [256, 128]
+pid_hidden_dims: [64, 32]
+# ... or rely on network.tower_specs from configs/experiments/network/multi_tower.yaml.
+
+hydra:
+  run:
+    dir: results/experiments/${run_name}/${feature_key:${hydra:runtime.choices.network},${features}}/a${anchor_per_class}
+  sweep:
+    dir: results/experiments/${run_name}
+    subdir: ${feature_key:${hydra:runtime.choices.network},${features}}/a${anchor_per_class}

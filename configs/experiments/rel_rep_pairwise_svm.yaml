@@ -1,0 +1,33 @@
+run_name: rel_rep_pairwise_svm
+experiment: RelRepPairwiseSVM
+
+defaults:
+  - default
+  - _self_
+
+anchor_per_class: 20
+seed: 42
+plot_only: false
+sw_coordinates: null        # distance | stored (null = paper.yaml metrics.sw_as_distance)
+
+# fixed: C/gamma below with an 80/20 permutation split (Fig. 6 curves)
+# study: stratified 64/16/20 split, validation grid, support-vector statistics (Fig. 7)
+mode: fixed
+train_fraction: 0.8
+svm:
+  kernel: rbf
+  C: 1.0
+  gamma: scale
+study:
+  test_fraction: 0.2
+  validation_fraction: 0.2
+  C_grid: [10.0]
+  gamma_grid: [scale]
+  save_margins: false
+
+hydra:
+  run:
+    dir: results/experiments/${run_name}/${mode}/${metric}/a${anchor_per_class}
+  sweep:
+    dir: results/experiments/${run_name}/${mode}
+    subdir: ${metric}/a${anchor_per_class}

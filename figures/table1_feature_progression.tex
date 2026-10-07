@@ -1,0 +1,20 @@
+\begin{table}[h]
+  \centering
+  \small
+  \renewcommand{\arraystretch}{1.15}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}|l|c|c|c|c|||c|c|c|c|@{}}
+    \hline
+    & \(\mathrm{PS}\) & \(+\mathrm{SW}_2\) & \(+\mathrm{W}_2\) & \(+\mathrm{PID}\) & \(\mathrm{SW}_2\) & \(+\mathrm{W}_2\) & \(+\mathrm{PS}\) & \(+\mathrm{PID}\) \\
+    \hline
+    \(\mathrm{QCD}\) vs\ \(t\to bqq\) & 0.9983 & 0.9995 & 0.9995 & 0.9997 & 0.9994 & 0.9995 & 0.9995 & 0.9997 \\
+    \(\mathrm{QCD}\) vs\ \(H \to \ell\nu q q\) & 0.9506 & 0.9898 & 0.9991 & 0.9998 & 0.9815 & 0.9989 & 0.9991 & 0.9998 \\
+    \(H \to c\bar{c}\) vs\ \(H \to gg\) & 0.5756 & \textbf{\underline{0.8067}} & 0.8248 & \textbf{0.8818} & 0.7982 & 0.8261 & 0.8248 & \textbf{0.8818} \\
+    \(H \to b\bar{b}\) vs\ \(H \to 4q\) & 0.6788 & \textbf{\underline{0.8849}} & 0.8981 & 0.9344 & 0.8872 & 0.8986 & 0.8981 & 0.9344 \\
+    \(H \to b\bar{b}\) vs\ \(H \to \ell \nu q q\) & 0.8070 & \textbf{\underline{0.8948}} & \textbf{\underline{0.9926}} & 0.9956 & 0.8729 & \textbf{\underline{0.9921}} & 0.9926 & 0.9956 \\
+    \(W \to qq\) vs\ \(Z \to qq\) & 0.6236 & 0.6470 & 0.6483 & \textbf{0.6888} & 0.6483 & 0.6529 & 0.6483 & \textbf{0.6888} \\
+    \hline
+  \end{tabular}
+  \caption{BDT classification AUCs for two orderings in which the M3R feature blocks are successively combined. Within each ordering, a column labeled \(+X\) reports the AUC after adding feature block \(X\) to those preceding it. Bold entries indicate an incremental AUC improvement greater than 5\%, while bold and underlined entries indicate an improvement greater than 10\%.}
+  \label{tab:feature_progression}
+\end{table}

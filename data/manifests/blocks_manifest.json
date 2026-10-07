@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "dataset": "jetclass_large_10k",
+  "n_per_class": 10000,
+  "class_order": ["QCD", "HToBB", "HToCC", "HToGG", "HToWW4Q", "ZToQQ", "WToQQ", "TTBar", "HToWW2Q1L", "TTBarLep"],
+  "metrics": {
+    "w2": {
+      "stored_power": 1,
+      "dtype": "float64",
+      "generator": "m3r.metrics.w2.get_w2 (POT 0.9.4 exact EMD, sqrt of emd2)",
+      "notes": "Plain W2 distances. Classes 0-7 computed 2026-01-31, classes 8-9 appended 2026-04-16/17."
+    },
+    "sw": {
+      "stored_power": 2,
+      "dtype": "float64",
+      "generator": "pyspecter SPECTER.spectralEMD (returns ds2), GPU, spectral_batch_size 512, 2026-06-07",
+      "notes": "Files hold SW2 SQUARED. BlockStore returns sqrt(max(x, 0)) unless as_distance=False."
+    },
+    "ps": {
+      "stored_power": 1,
+      "dtype": "float64",
+      "generator": "m3r.metrics.ps.ps_distance (Sphere2Simplex=1, l_has_chi=True, lambda_S=1, lambda_chi=16 pi^2)",
+      "notes": "Plain PS distances on 10 kt subjets in the collinear frame. Classes 0-7 computed 2026-01-25 from 6-decimal text inputs, classes 8-9 appended 2026-06-01/02; both predate the defensive arccos normalisation/clipping in ps_distance."
+    }
+  },
+  "files": {}
+}

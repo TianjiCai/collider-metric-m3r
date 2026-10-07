@@ -1,0 +1,36 @@
+run_name: rel_rep_pairwise_bdt
+experiment: RelRepPairwiseBDT
+
+defaults:
+  - default
+  - _self_
+
+anchor_per_class: 20
+seed: 42
+plot_only: false
+val_size: 0.2               # stratified hold-out test fraction (HGB keeps 10% of the rest for early stopping)
+save_roc: true
+
+feature_set: ps+sw+w2+pid   # a key of paper.yaml bdt.feature_sets ...
+metrics: null               # ... or an explicit list, e.g. [ps, sw, part_charge]
+
+bdt:
+  learning_rate: 0.05
+  max_iter: 2000
+  max_leaf_nodes: 31
+  min_samples_leaf: 50
+  l2_regularization: 1.0
+  max_bins: 255
+  early_stopping: true
+  validation_fraction: 0.1
+  n_iter_no_change: 20
+  random_state: 42
+
+target_tprs: [0.3, 0.5, 0.995]
+
+hydra:
+  run:
+    dir: results/experiments/${run_name}/${feature_key:${feature_set},${metrics}}/a${anchor_per_class}
+  sweep:
+    dir: results/experiments/${run_name}
+    subdir: ${feature_key:${feature_set},${metrics}}/a${anchor_per_class}

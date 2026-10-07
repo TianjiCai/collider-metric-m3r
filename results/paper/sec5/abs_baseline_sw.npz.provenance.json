@@ -1,0 +1,14 @@
+{
+  "config_hash": "9367e02b190b",
+  "git_sha": "ccf4390",
+  "legacy_source": "runs/abs_pairwise_svm/sw/2026-07-01_14-45-10/results/svm_abs_large_sw.npz",
+  "result": "abs_baseline_sw.npz",
+  "stage": "scripts/dev/import_legacy_results.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}

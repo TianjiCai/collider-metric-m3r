@@ -1,0 +1,461 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
+from typing import List, Any, Sequence
+
+
+class MLP(nn.Module):
+    def __init__(
+        self, input_dim, hidden_dims, output_dim, activation="relu", dropout=0.0
+    ):
+        super(MLP, self).__init__()
+        layers = []
+        prev_dim = input_dim
+        # self.act = getattr(F, activation)
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Linear(prev_dim, hidden_dim))
+            layers.append(nn.ReLU() if activation == "relu" else nn.Tanh())
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
+            prev_dim = hidden_dim
+
+        layers.append(nn.Linear(prev_dim, output_dim))
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.network(x)
+
+
+class TwoTowerMLP(nn.Module):
+    def __init__(
+        self,
+        kin_dim,
+        part_id_dim,
+        kin_hidden_dims,
+        part_hidden_dims,
+        fusion_hidden_dims,
+        output_dim,
+        activation="relu",
+        dropout=0.0,
+    ):
+        super().__init__()
+
+        self.kin_dim = kin_dim
+        self.part_id_dim = part_id_dim
+        act = nn.ReLU if activation == "relu" else nn.Tanh
+
+        # ----- Kinematics tower -----
+        kin_layers = []
+        prev_dim = kin_dim
+        for h in kin_hidden_dims:
+            kin_layers.append(nn.Linear(prev_dim, h))
+            kin_layers.append(act())
+            if dropout > 0:
+                kin_layers.append(nn.Dropout(dropout))
+            prev_dim = h
+        self.kin_net = nn.Sequential(*kin_layers)
+
+        # ----- Particle-ID tower -----
+        part_layers = []
+        prev_dim = part_id_dim
+        for h in part_hidden_dims:
+            part_layers.append(nn.Linear(prev_dim, h))
+            part_layers.append(act())
+            if dropout > 0:
+                part_layers.append(nn.Dropout(dropout))
+            prev_dim = h
+        self.part_net = nn.Sequential(*part_layers)
+
+        # ----- Fusion head -----
+        fusion_layers = []
+        prev_dim = kin_hidden_dims[-1] + part_hidden_dims[-1]
+        for h in fusion_hidden_dims:
+            fusion_layers.append(nn.Linear(prev_dim, h))
+            fusion_layers.append(act())
+            if dropout > 0:
+                fusion_layers.append(nn.Dropout(dropout))
+            prev_dim = h
+
+        fusion_layers.append(nn.Linear(prev_dim, output_dim))
+        self.fusion_net = nn.Sequential(*fusion_layers)
+
+    def forward(self, x):
+        """
+        x: (batch_size, kin_dim + part_id_dim)
+        """
+        x_kin = x[:, : self.kin_dim]
+        x_part = x[:, self.kin_dim : self.kin_dim + self.part_id_dim]
+
+        kin_emb = self.kin_net(x_kin)
+        part_emb = self.part_net(x_part)
+
+        fused = torch.cat([kin_emb, part_emb], dim=1)
+        return self.fusion_net(fused)
+
+
+class MultiTowerMLP(nn.Module):
+    """
+    Hydra-friendly multi-tower MLP.
+    forward(x): x is a single tensor of shape (B, sum(in_dim)).
+
+    tower_specs: list of dict-like items, each with:
+      - name: str
+      - in_dim: int
+      - hidden_dims: list[int] (last is embedding dim)
+    """
+
+    def __init__(
+        self,
+        tower_specs: Sequence[Any],
+        fusion_hidden_dims: Sequence[int],
+        output_dim: int,
+        activation: str = "relu",
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        self.activation = activation
+        self.dropout = float(dropout)
+
+        tower_specs = self._as_list(tower_specs)
+        if len(tower_specs) == 0:
+            raise ValueError("tower_specs must have at least one tower spec.")
+
+        # Normalize specs to plain python dicts
+        self.tower_specs: List[dict] = []
+        for i, s in enumerate(tower_specs):
+            name, in_dim, hidden_dims = self._read_spec(s)
+            hidden_dims = self._as_list(hidden_dims)
+            if len(hidden_dims) == 0:
+                raise ValueError(f"Tower {i} ('{name}') hidden_dims cannot be empty.")
+
+            self.tower_specs.append(
+                {
+                    "name": str(name),
+                    "in_dim": int(in_dim),
+                    "hidden_dims": [int(h) for h in hidden_dims],
+                }
+            )
+
+        # Precompute slices
+        self._starts: List[int] = []
+        self._ends: List[int] = []
+        cursor = 0
+        for s in self.tower_specs:
+            self._starts.append(cursor)
+            cursor += s["in_dim"]
+            self._ends.append(cursor)
+        self.total_in_dim = cursor
+
+        # Tower embedding nets in order
+        self.tower_nets = nn.ModuleList(
+            [self._make_mlp(s["in_dim"], s["hidden_dims"]) for s in self.tower_specs]
+        )
+
+        # Fusion head
+        fusion_in_dim = sum(s["hidden_dims"][-1] for s in self.tower_specs)
+        fusion_hidden_dims = [int(h) for h in self._as_list(fusion_hidden_dims)]
+
+        fusion_layers: List[nn.Module] = []
+        prev = fusion_in_dim
+        for h in fusion_hidden_dims:
+            fusion_layers.append(nn.Linear(prev, h))
+            fusion_layers.append(self._act())
+            if self.dropout > 0:
+                fusion_layers.append(nn.Dropout(self.dropout))
+            prev = h
+        fusion_layers.append(nn.Linear(prev, int(output_dim)))
+        self.fusion_net = nn.Sequential(*fusion_layers)
+
+    # -------------------------
+    # "Private" helper methods
+    # -------------------------
+    def _as_list(self, x: Any) -> List[Any]:
+        # Works for list/tuple and OmegaConf ListConfig (iterable)
+        return list(x) if x is not None else []
+
+    def _act(self) -> nn.Module:
+        if self.activation == "relu":
+            return nn.ReLU()
+        if self.activation == "tanh":
+            return nn.Tanh()
+        if self.activation == "gelu":
+            return nn.GELU()
+        raise ValueError(f"Unsupported activation: {self.activation}")
+
+    def _make_mlp(self, in_dim: int, hidden_dims: Sequence[int]) -> nn.Sequential:
+        layers: List[nn.Module] = []
+        prev = int(in_dim)
+        for h in self._as_list(hidden_dims):
+            h = int(h)
+            layers.append(nn.Linear(prev, h))
+            layers.append(self._act())
+            if self.dropout > 0:
+                layers.append(nn.Dropout(self.dropout))
+            prev = h
+        return nn.Sequential(*layers)
+
+    def _read_spec(self, s: Any):
+        """
+        Accepts dict / DictConfig / object-with-attributes.
+        Returns (name, in_dim, hidden_dims).
+        """
+        # Dict-like (dict or OmegaConf DictConfig supports __getitem__)
+        if isinstance(s, dict) or hasattr(s, "__getitem__"):
+            try:
+                return s["name"], s["in_dim"], s["hidden_dims"]
+            except Exception:
+                pass
+
+        # Attribute-like
+        return getattr(s, "name"), getattr(s, "in_dim"), getattr(s, "hidden_dims")
+
+    # -------------------------
+    # Forward
+    # -------------------------
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() != 2:
+            raise ValueError(f"x must be 2D (B, D). Got {tuple(x.shape)}")
+        if x.shape[1] != self.total_in_dim:
+            raise ValueError(
+                f"Expected feature dim {self.total_in_dim}, got {x.shape[1]}"
+            )
+
+        embs = []
+        for net, s0, s1 in zip(self.tower_nets, self._starts, self._ends):
+            embs.append(net(x[:, s0:s1]))
+        fused = torch.cat(embs, dim=1)
+        return self.fusion_net(fused)
+
+    def get_slices(self):
+        # Optional debugging helper; remove if you want
+        return [
+            (s["name"], s0, s1, s["in_dim"])
+            for s, s0, s1 in zip(self.tower_specs, self._starts, self._ends)
+        ]
+
+
+class ResNetBlock(nn.Module):
+    def __init__(self, dim):
+        super(ResNetBlock, self).__init__()
+        self.fc1 = nn.Linear(dim, dim)
+        self.fc2 = nn.Linear(dim, dim)
+        self.activation = nn.ReLU()
+
+    def forward(self, x):
+        residual = x
+        out = self.activation(self.fc1(x))
+        out = self.fc2(out)
+        out += residual
+        out = self.activation(out)
+        return out
+
+
+class ResNet(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_blocks=3, dropout=0.0):
+        super(ResNet, self).__init__()
+        layers = [nn.Linear(input_dim, hidden_dim), nn.ReLU()]
+
+        for _ in range(num_blocks):
+            layers.append(ResNetBlock(hidden_dim))
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
+
+        layers.append(nn.Linear(hidden_dim, output_dim))
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.network(x)
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def train_network_torch(
+    model,
+    X_train,
+    y_train,
+    val_size=0.2,
+    loss_fn=nn.CrossEntropyLoss(),
+    optimizer=torch.optim.AdamW,
+    optimizer_params={},
+    epochs=100,
+    patience=None,
+    batch_size=256,
+    learning_rate=1e-4,
+    seed=42,
+    device="cpu",
+):
+    set_seed(seed)
+    model.train()
+
+    if device == "cpu":
+        device = torch.device("cpu")
+        print("Using CPU for training.")
+    elif device == "cuda" and torch.cuda.is_available():
+        device = torch.device("cuda")
+        print("Using Nvidia GPU for training.")
+    elif device == "mps" and torch.backends.mps.is_available():
+        device = torch.device("mps")
+        print("Using Apple Silicon GPU for training.")
+    else:
+        raise ValueError(f"Unsupported device type: {device}")
+
+    model.to(device)
+
+    if val_size is None:
+        val_size = 0.0
+
+    optimizer = optimizer(model.parameters(), lr=learning_rate, **optimizer_params)
+
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train, y_train, test_size=val_size, stratify=y_train, random_state=seed
+    )
+
+    # Class-index targets for cross-entropy; float targets only for BCE/MSE-style losses.
+    binary_loss = isinstance(loss_fn, (nn.BCEWithLogitsLoss, nn.BCELoss, nn.MSELoss))
+    label_dtype = torch.float32 if binary_loss else torch.long
+
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=label_dtype)
+    X_val = torch.tensor(X_val, dtype=torch.float32)
+    y_val = torch.tensor(y_val, dtype=label_dtype)
+
+    traindataset = torch.utils.data.TensorDataset(X_train, y_train)
+
+    if val_size > 0:
+        valdataset = torch.utils.data.TensorDataset(X_val, y_val)
+    else:
+        valdataset = None
+
+    train_loader = torch.utils.data.DataLoader(
+        traindataset, batch_size=batch_size, shuffle=True
+    )
+
+    if valdataset is not None:
+        val_loader = torch.utils.data.DataLoader(
+            valdataset, batch_size=batch_size, shuffle=False
+        )
+    else:
+        val_loader = None
+
+    train_loss_history = []
+    val_loss_history = []
+    best_val_loss = float("inf")
+    best_model_state = None
+    epochs_no_improve = 0
+    num_samples = X_train.size(0)
+    num_batches = (num_samples + batch_size - 1) // batch_size
+
+    for epoch in tqdm(range(epochs), desc="Epochs"):
+        model.train()
+        epoch_loss = 0.0
+
+        for batch in train_loader:
+            x, y = batch
+            x, y = x.to(device), y.to(device)
+            optimizer.zero_grad()
+            outputs = model(x)
+            loss = loss_fn(outputs, y)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+
+        train_loss_history.append(epoch_loss / num_batches)
+
+        if val_loader is not None:
+            model.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for x, y in val_loader:
+                    x, y = x.to(device), y.to(device)
+                    outputs = model(x)
+                    loss = loss_fn(outputs, y)
+                    val_loss += loss.item()
+            val_loss /= len(val_loader)
+            val_loss_history.append(val_loss)
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model_state = model.state_dict()
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+
+            if patience is not None and epochs_no_improve >= patience:
+                print(f"Early stopping at epoch {epoch + 1}")
+                break
+
+    # plt.figure(figsize=(10, 5))
+    # plt.plot(train_loss_history, label="Training Loss")
+    # if val_loader is not None:
+    #     plt.plot(val_loss_history, label="Validation Loss")
+    # plt.xlabel("Epochs")
+    # plt.ylabel("Loss")
+    # # plt.xscale("log")
+    # plt.title("Training and Validation Loss over Epochs")
+    # plt.legend()
+    # plt.show()
+
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+
+    return model, train_loss_history, val_loss_history
+
+
+def evaluate_network_torch(
+    model, X_test, y_test, batch_size=256, device="cpu", seed=42
+):
+    set_seed(seed)
+    # print("device:", type(device))
+    # print(torch.backends.mps.is_available())
+    if device == "cpu":
+        device = torch.device("cpu")
+        print("Using CPU for evaluation.")
+    elif device == "cuda" and torch.cuda.is_available():
+        device = torch.device("cuda")
+        print("Using Nvidia GPU for evaluation.")
+    elif device == "mps" and torch.backends.mps.is_available():
+        device = torch.device("mps")
+        print("Using Apple Silicon GPU for evaluation.")
+    else:
+        raise ValueError(f"Unsupported device type: {device}")
+
+    model.to(device)
+    model.eval()
+
+    X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
+    y_test_tensor = torch.tensor(y_test, dtype=torch.long).to(device)
+
+    num_samples = X_test_tensor.size(0)
+    num_batches = (num_samples + batch_size - 1) // batch_size
+    correct = 0
+    total = 0
+    all_preds = []
+    all_pred_probs = []
+
+    with torch.no_grad():
+        for i in range(num_batches):
+            batch_X = X_test_tensor[i * batch_size : (i + 1) * batch_size]
+            batch_y = y_test_tensor[i * batch_size : (i + 1) * batch_size]
+
+            outputs = model(batch_X)
+            all_pred_probs.append(F.softmax(outputs, dim=1).cpu())
+            _, predicted = torch.max(outputs.data, 1)
+            all_preds.append(predicted.cpu())
+
+            total += batch_y.size(0)
+            correct += (predicted == batch_y).sum().item()
+
+    accuracy = correct / total
+    all_preds = torch.cat(all_preds).numpy()
+    all_pred_probs = torch.cat(all_pred_probs, dim=0).numpy()
+    print(f"Test Accuracy: {accuracy:.4f}")
+
+    return accuracy, all_preds, all_pred_probs

@@ -1,0 +1,15 @@
+{
+  "config_hash": "5ee3a7f8aea8",
+  "git_sha": "ccf4390",
+  "legacy_source": "metric_comparison/ps/intraclass_comp/output/decision_ordering/intraclass_decision_ordering_summary.csv",
+  "note": "class names assigned from block_idx (legacy script map had blocks 5/7 swapped); verified identical to m3r.intraclass on 2000-jet subsets",
+  "result": "mado_ps.csv",
+  "stage": "scripts/dev/import_legacy_results.py",
+  "versions": {
+    "matplotlib": "3.11.1",
+    "numpy": "2.2.6",
+    "ot": "0.9.4",
+    "scipy": "1.14.1",
+    "sklearn": "1.5.2"
+  }
+}
